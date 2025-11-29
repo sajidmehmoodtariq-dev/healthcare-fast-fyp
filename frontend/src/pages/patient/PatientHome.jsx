@@ -57,7 +57,7 @@ const PatientHome = ({ user, onNavigate }) => {
             </svg>
           </button>
           <button 
-            onClick={() => alert('Profile feature coming soon!')}
+            onClick={() => onNavigate('profile')}
             className="w-14 h-14 bg-white rounded-2xl hover:bg-gray-100 transition-colors flex items-center justify-center shadow-md"
           >
             <svg className="w-6 h-6 text-teal-500" fill="currentColor" viewBox="0 0 20 20">

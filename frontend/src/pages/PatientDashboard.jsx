@@ -5,6 +5,7 @@ import PatientHome from './patient/PatientHome';
 import PatientChat from './patient/PatientChat';
 import PatientDoctors from './patient/PatientDoctors';
 import PatientNotifications from './patient/PatientNotifications';
+import PatientProfile from './patient/PatientProfile';
 
 const PatientDashboard = () => {
   const { user, logout } = useAuth();
@@ -26,6 +27,8 @@ const PatientDashboard = () => {
         return <PatientDoctors onNavigate={setActiveTab} />;
       case 'notifications':
         return <PatientNotifications onNavigate={setActiveTab} />;
+      case 'profile':
+        return <PatientProfile onNavigate={setActiveTab} />;
       default:
         return <PatientHome user={user} onNavigate={setActiveTab} />;
     }
@@ -108,7 +111,12 @@ const PatientDashboard = () => {
           </button>
 
           <button
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 text-gray-600 hover:bg-gray-100 transition-colors"
+            onClick={() => setActiveTab('profile')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors ${
+              activeTab === 'profile' 
+                ? 'bg-gradient-to-r from-teal-400 to-cyan-500 text-white' 
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -173,6 +181,7 @@ const PatientDashboard = () => {
               {activeTab === 'chat' && 'AI Assistant'}
               {activeTab === 'doctors' && 'Find Doctors'}
               {activeTab === 'notifications' && 'Notifications'}
+              {activeTab === 'profile' && 'Profile'}
             </h2>
           </div>
         </header>
@@ -219,7 +228,10 @@ const PatientDashboard = () => {
               <span className="text-xs font-medium">Alerts</span>
             </button>
             <button
-              className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl text-gray-400"
+              onClick={() => setActiveTab('profile')}
+              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-colors ${
+                activeTab === 'profile' ? 'text-teal-500' : 'text-gray-400'
+              }`}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
