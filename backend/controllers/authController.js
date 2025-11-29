@@ -185,3 +185,88 @@ export const getProfile = async (req, res) => {
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 };
+
+export const updateDoctorProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      fullName,
+      phoneNumber,
+      age,
+      gender,
+      cnic,
+      clinicAddress,
+      specialization,
+      experience,
+      licenseNumber,
+    } = req.body;
+
+    // Get current user to verify they are a doctor
+    const { data: currentUser, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError || !currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (currentUser.role !== 'doctor') {
+      return res.status(403).json({ error: 'Only doctors can update profile' });
+    }
+
+    // Check if CNIC and degree images are provided (required for update)
+    if (!req.files || !req.files.cnicImage || !req.files.cnicImage[0]) {
+      return res.status(400).json({ error: 'CNIC image is required' });
+    }
+
+    if (!req.files || !req.files.degreeImage || !req.files.degreeImage[0]) {
+      return res.status(400).json({ error: 'Degree image is required' });
+    }
+
+    // Upload new images
+    const cnicImageUrl = await uploadFileToSupabase(req.files.cnicImage[0], 'cnic');
+    const degreeImageUrl = await uploadFileToSupabase(req.files.degreeImage[0], 'degrees');
+
+    // Prepare update data
+    const updateData = {
+      full_name: fullName || currentUser.full_name,
+      phone_number: phoneNumber || currentUser.phone_number,
+      age: age ? parseInt(age) : currentUser.age,
+      gender: gender || currentUser.gender,
+      cnic: cnic || currentUser.cnic,
+      clinic_address: clinicAddress || currentUser.clinic_address,
+      specialization: specialization || currentUser.specialization,
+      experience: experience ? parseInt(experience) : currentUser.experience,
+      license_number: licenseNumber || currentUser.license_number,
+      cnic_image_url: cnicImageUrl,
+      degree_image_url: degreeImageUrl,
+      approval_status: 'pending', // Reset to pending after update
+      rejection_reason: null, // Clear rejection reason
+    };
+
+    // Update user
+    const { data: updatedUser, error: updateError } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+
+    // Remove password from response
+    delete updatedUser.password;
+
+    res.status(200).json({
+      message: 'Profile updated successfully. Your account is now pending approval.',
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+};

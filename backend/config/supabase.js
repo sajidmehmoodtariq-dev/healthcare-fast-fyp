@@ -3,30 +3,49 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const supabaseUrl = 'https://gkrxtudjrsjmqlbyvkct.supabase.co';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://gkrxtudjrsjmqlbyvkct.supabase.co';
 const supabaseKey = process.env.SUPABASE_KEY;
 
-// Create Supabase client
-export const supabase = createClient(supabaseUrl, supabaseKey);
+if (!supabaseKey) {
+  throw new Error('SUPABASE_KEY is not defined in environment variables');
+}
+
+// Create Supabase client with service role key for backend operations
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
 
 export const uploadFileToSupabase = async (file, folder) => {
-  const fileName = `${Date.now()}_${file.originalname}`;
-  const filePath = `${folder}/${fileName}`;
-  
-  const { data, error } = await supabase.storage
-    .from(process.env.STORAGE_BUCKET)
-    .upload(filePath, file.buffer, {
-      contentType: file.mimetype,
-      upsert: false,
-    });
+  try {
+    const bucketName = process.env.STORAGE_BUCKET || 'health';
+    const fileName = `${Date.now()}_${file.originalname}`;
+    const filePath = `${folder}/${fileName}`;
+    
+    console.log(`Uploading file to bucket: ${bucketName}, path: ${filePath}`);
+    
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
 
-  if (error) {
-    throw new Error(`Upload failed: ${error.message}`);
+    if (error) {
+      console.error('Supabase upload error:', error);
+      throw new Error(`Upload failed: ${error.message}`);
+    }
+
+    const { data: urlData } = supabase.storage
+      .from(bucketName)
+      .getPublicUrl(filePath);
+
+    console.log('File uploaded successfully:', urlData.publicUrl);
+    return urlData.publicUrl;
+  } catch (error) {
+    console.error('Upload function error:', error);
+    throw error;
   }
-
-  const { data: urlData } = supabase.storage
-    .from(process.env.STORAGE_BUCKET)
-    .getPublicUrl(filePath);
-
-  return urlData.publicUrl;
 };

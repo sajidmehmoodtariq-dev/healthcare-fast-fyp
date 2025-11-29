@@ -81,7 +81,7 @@ export const approveDoctor = async (req, res) => {
   }
 };
 
-// Reject doctor
+// Reject doctor - sets status to rejected with reason
 export const rejectDoctor = async (req, res) => {
   try {
     const { doctorId } = req.params;
@@ -109,7 +109,7 @@ export const rejectDoctor = async (req, res) => {
       return res.status(404).json({ error: 'Doctor not found' });
     }
 
-    res.status(200).json({ message: 'Doctor rejected', doctor });
+    res.status(200).json({ message: 'Doctor rejected. They can update their information and resubmit.', doctor });
   } catch (error) {
     console.error('Reject doctor error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
