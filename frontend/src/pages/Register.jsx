@@ -17,6 +17,7 @@ const Register = () => {
     experience: '',
     licenseNumber: '',
     clinicAddress: '',
+    consultationFee: '',
   });
   const [cnicImage, setCnicImage] = useState(null);
   const [degreeImage, setDegreeImage] = useState(null);
@@ -27,6 +28,35 @@ const Register = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    
+    // Validation for name fields - only letters and spaces
+    if (name === 'fullName') {
+      const nameRegex = /^[a-zA-Z\s]*$/;
+      if (!nameRegex.test(value)) {
+        return; // Don't update if invalid characters
+      }
+    }
+    
+    // Validation for CNIC - only digits and hyphens, max 15 chars (13 digits + 2 hyphens)
+    if (name === 'cnic') {
+      const cnicValue = value.replace(/[^0-9-]/g, ''); // Only allow digits and hyphens
+      if (cnicValue.length <= 15) {
+        setFormData((prev) => ({
+          ...prev,
+          [name]: cnicValue,
+        }));
+      }
+      return;
+    }
+    
+    // Validation for age - minimum 20 for doctors
+    if (name === 'age' && role === 'doctor') {
+      const ageValue = parseInt(value);
+      if (value && (ageValue < 20 || ageValue > 120)) {
+        return; // Don't update if age is less than 20 or more than 120
+      }
+    }
+    
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -53,6 +83,21 @@ const Register = () => {
       setError('CNIC is required for doctors');
       return;
     }
+    
+    // Validate CNIC format (13 digits)
+    if (formData.cnic) {
+      const cnicDigits = formData.cnic.replace(/[^0-9]/g, '');
+      if (cnicDigits.length !== 13) {
+        setError('CNIC must be exactly 13 digits (format: 35201-8468971-5)');
+        return;
+      }
+    }
+    
+    // Validate doctor age minimum
+    if (role === 'doctor' && formData.age && parseInt(formData.age) < 20) {
+      setError('Doctor must be at least 20 years old');
+      return;
+    }
 
     setLoading(true);
 
@@ -73,6 +118,7 @@ const Register = () => {
       if (formData.experience) submitData.append('experience', formData.experience);
       if (formData.licenseNumber) submitData.append('licenseNumber', formData.licenseNumber);
       if (formData.clinicAddress) submitData.append('clinicAddress', formData.clinicAddress);
+      if (formData.consultationFee) submitData.append('consultationFee', formData.consultationFee);
       if (cnicImage) submitData.append('cnicImage', cnicImage);
       if (degreeImage) submitData.append('degreeImage', degreeImage);
     }
@@ -285,7 +331,7 @@ const Register = () => {
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Age
+                Age {role === 'doctor' && <span className="text-xs text-gray-500">(min 20)</span>}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -306,7 +352,9 @@ const Register = () => {
                   name="age"
                   value={formData.age}
                   onChange={handleInputChange}
-                  placeholder="Enter your age"
+                  placeholder={role === 'doctor' ? 'Min 20 years' : 'Enter your age'}
+                  min={role === 'doctor' ? '20' : '1'}
+                  max="120"
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
@@ -355,10 +403,11 @@ const Register = () => {
               name="cnic"
               value={formData.cnic}
               onChange={handleInputChange}
-              placeholder="Enter your CNIC number"
+              placeholder="35201-8468971-5 (13 digits)"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               required={role === 'doctor'}
             />
+            <p className="text-xs text-gray-500 mt-1">Enter 13-digit CNIC number</p>
           </div>
 
           {/* Doctor-specific fields */}
@@ -424,25 +473,47 @@ const Register = () => {
 
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  CNIC Image (Optional)
+                  Consultation Fee (PKR)
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-gray-500 font-medium">Rs.</span>
+                  </div>
+                  <input
+                    type="number"
+                    name="consultationFee"
+                    value={formData.consultationFee}
+                    onChange={handleInputChange}
+                    placeholder="Enter consultation fee"
+                    min="0"
+                    className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  CNIC Image <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="file"
                   accept="image/*"
                   onChange={(e) => handleFileChange(e, 'cnic')}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100"
+                  required
                 />
               </div>
 
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Degree Image (Optional)
+                  Degree Image <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="file"
                   accept="image/*"
                   onChange={(e) => handleFileChange(e, 'degree')}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100"
+                  required
                 />
               </div>
             </>

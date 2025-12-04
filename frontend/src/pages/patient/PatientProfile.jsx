@@ -17,6 +17,15 @@ const PatientProfile = ({ onNavigate }) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    
+    // Validation for name fields - only letters and spaces
+    if (name === 'fullName') {
+      const nameRegex = /^[a-zA-Z\s]*$/;
+      if (!nameRegex.test(value)) {
+        return; // Don't update if invalid characters
+      }
+    }
+    
     setFormData(prev => ({
       ...prev,
       [name]: value

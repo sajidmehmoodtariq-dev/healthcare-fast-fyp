@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   specialization VARCHAR(255),
   experience INTEGER,
   license_number VARCHAR(100),
+  consultation_fee INTEGER,
   
   -- Approval status for doctors (pending, approved, rejected)
   approval_status VARCHAR(20) DEFAULT 'pending' CHECK (approval_status IN ('pending', 'approved', 'rejected')),

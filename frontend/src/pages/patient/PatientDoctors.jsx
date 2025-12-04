@@ -76,7 +76,7 @@ const PatientDoctors = ({ onNavigate }) => {
   return (
     <div className="pb-20 lg:pb-8 max-w-full overflow-x-hidden">
       {/* Search and Filters */}
-      <div className="bg-gradient-to-br from-teal-400 to-cyan-500 rounded-3xl p-6 mb-6">
+      <div className="bg-linear-to-br from-teal-400 to-cyan-500 rounded-3xl p-6 mb-6">
         <button 
           onClick={() => onNavigate('home')}
           className="mb-4 p-2 hover:bg-white hover:bg-opacity-20 rounded-xl transition-colors text-white inline-flex lg:hidden"
@@ -123,11 +123,11 @@ const PatientDoctors = ({ onNavigate }) => {
         {filteredDoctors.map(doctor => (
           <div key={doctor.id} className="bg-white rounded-2xl p-4 md:p-5 shadow-sm border border-gray-100">
             <div className="flex items-start gap-3 md:gap-4 mb-4">
-              <div className="w-14 h-14 md:w-20 md:h-20 bg-gradient-to-br from-teal-100 to-cyan-100 rounded-2xl flex items-center justify-center text-2xl md:text-4xl shrink-0">
+              <div className="w-14 h-14 md:w-20 md:h-20 bg-linear-to-br from-teal-100 to-cyan-100 rounded-2xl flex items-center justify-center text-2xl md:text-4xl shrink-0">
                 {doctor.avatar}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-base md:text-lg text-gray-800 mb-1 break-words">{doctor.name}</h3>
+                <h3 className="font-bold text-base md:text-lg text-gray-800 mb-1 wrap-break-words">{doctor.name}</h3>
                 <p className="text-sm md:text-base text-teal-500 mb-2">{doctor.specialty}</p>
                 <div className="flex items-center gap-3 md:gap-4 text-xs md:text-sm text-gray-600 flex-wrap">
                   <div className="flex items-center gap-1">
@@ -144,13 +144,13 @@ const PatientDoctors = ({ onNavigate }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  <span className="break-words">{doctor.location}</span>
+                  <span className="wrap-break-words">{doctor.location}</span>
                 </div>
               </div>
             </div>
             <button
               onClick={() => handleBookAppointment(doctor)}
-              className="w-full bg-gradient-to-r from-teal-400 to-cyan-500 text-white font-semibold py-3 rounded-xl hover:shadow-lg transition-all text-sm md:text-base"
+              className="w-full bg-linear-to-r from-teal-400 to-cyan-500 text-white font-semibold py-3 rounded-xl hover:shadow-lg transition-all text-sm md:text-base"
             >
               Book Appointment
             </button>
@@ -163,7 +163,7 @@ const PatientDoctors = ({ onNavigate }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end md:items-center justify-center z-50 p-0 md:p-4 overflow-y-auto">
           <div className="bg-white w-full md:max-w-2xl md:rounded-3xl rounded-t-3xl max-h-[95vh] md:max-h-[90vh] overflow-y-auto my-auto">
             {/* Header */}
-            <div className="bg-gradient-to-br from-teal-400 to-cyan-500 text-white p-5 md:p-6 md:rounded-t-3xl rounded-t-3xl sticky top-0 z-10">
+            <div className="bg-linear-to-br from-teal-400 to-cyan-500 text-white p-5 md:p-6 md:rounded-t-3xl rounded-t-3xl sticky top-0 z-10">
               <button 
                 onClick={() => setSelectedDoctor(null)}
                 className="mb-3 md:mb-4 p-2 hover:bg-white hover:bg-opacity-20 rounded-xl transition-colors inline-flex"
@@ -178,11 +178,11 @@ const PatientDoctors = ({ onNavigate }) => {
             <div className="p-5 md:p-6">
               {/* Doctor Info */}
               <div className="flex items-start gap-3 md:gap-4 mb-6 pb-6 border-b">
-                <div className="w-14 h-14 md:w-20 md:h-20 bg-gradient-to-br from-teal-100 to-cyan-100 rounded-2xl flex items-center justify-center text-2xl md:text-4xl shrink-0">
+                <div className="w-14 h-14 md:w-20 md:h-20 bg-linear-to-br from-teal-100 to-cyan-100 rounded-2xl flex items-center justify-center text-2xl md:text-4xl shrink-0">
                   {selectedDoctor.avatar}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-base md:text-xl text-gray-800 break-words">{selectedDoctor.name}</h3>
+                  <h3 className="font-bold text-base md:text-xl text-gray-800 warp-break-words">{selectedDoctor.name}</h3>
                   <p className="text-teal-500 text-sm md:text-base">{selectedDoctor.specialty}</p>
                   <div className="flex flex-wrap items-center gap-2 md:gap-3 mt-1 text-xs md:text-sm">
                     <span className="flex items-center gap-1">
@@ -193,7 +193,7 @@ const PatientDoctors = ({ onNavigate }) => {
                       <svg className="w-3 h-3 md:w-4 md:h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       </svg>
-                      <span className="break-words">{selectedDoctor.location}</span>
+                      <span className="warp-break-words">{selectedDoctor.location}</span>
                     </span>
                   </div>
                 </div>

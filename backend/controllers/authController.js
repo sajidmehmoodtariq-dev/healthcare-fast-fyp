@@ -18,6 +18,7 @@ export const signup = async (req, res) => {
       specialization,
       experience,
       licenseNumber,
+      consultationFee,
     } = req.body;
 
     // Validate required fields
@@ -67,6 +68,7 @@ export const signup = async (req, res) => {
       userData.specialization = specialization || null;
       userData.experience = experience ? parseInt(experience) : null;
       userData.license_number = licenseNumber || null;
+      userData.consultation_fee = consultationFee ? parseInt(consultationFee) : null;
       userData.approval_status = 'pending'; // Doctor needs admin approval
 
       // Handle file uploads
@@ -199,6 +201,7 @@ export const updateDoctorProfile = async (req, res) => {
       specialization,
       experience,
       licenseNumber,
+      consultationFee,
     } = req.body;
 
     // Get current user to verify they are a doctor
@@ -240,6 +243,7 @@ export const updateDoctorProfile = async (req, res) => {
       specialization: specialization || currentUser.specialization,
       experience: experience ? parseInt(experience) : currentUser.experience,
       license_number: licenseNumber || currentUser.license_number,
+      consultation_fee: consultationFee ? parseInt(consultationFee) : currentUser.consultation_fee,
       cnic_image_url: cnicImageUrl,
       degree_image_url: degreeImageUrl,
       approval_status: 'pending', // Reset to pending after update

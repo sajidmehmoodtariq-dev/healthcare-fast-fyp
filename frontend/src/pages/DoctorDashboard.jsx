@@ -2,10 +2,16 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
+import DoctorHome from './doctor/DoctorHome';
+import DoctorPatients from './doctor/DoctorPatients';
+import DoctorChat from './doctor/DoctorChat';
+import DoctorProfile from './doctor/DoctorProfile';
+import DoctorNotifications from './doctor/DoctorNotifications';
 
 const DoctorDashboard = () => {
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('home');
   
   const isApproved = user?.approval_status === 'approved' || user?.approvalStatus === 'approved';
   const isPending = user?.approval_status === 'pending' || user?.approvalStatus === 'pending';
@@ -23,6 +29,7 @@ const DoctorDashboard = () => {
     experience: user?.experience || '',
     licenseNumber: user?.license_number || user?.licenseNumber || '',
     clinicAddress: user?.clinic_address || user?.clinicAddress || '',
+    consultationFee: user?.consultation_fee || user?.consultationFee || '',
   });
   const [cnicImage, setCnicImage] = useState(null);
   const [degreeImage, setDegreeImage] = useState(null);
@@ -31,6 +38,25 @@ const DoctorDashboard = () => {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const renderContent = () => {
+    if (!isApproved) return null;
+    
+    switch (activeTab) {
+      case 'home':
+        return <DoctorHome user={user} onNavigate={setActiveTab} />;
+      case 'patients':
+        return <DoctorPatients onNavigate={setActiveTab} />;
+      case 'chat':
+        return <DoctorChat onNavigate={setActiveTab} />;
+      case 'notifications':
+        return <DoctorNotifications onNavigate={setActiveTab} />;
+      case 'profile':
+        return <DoctorProfile onNavigate={setActiveTab} />;
+      default:
+        return <DoctorHome user={user} onNavigate={setActiveTab} />;
+    }
   };
 
   const handleInputChange = (e) => {
@@ -352,85 +378,340 @@ const DoctorDashboard = () => {
           </div>
         )}
 
-        {/* Approved State - Full Access */}
-        {isApproved && (
-          <div className="bg-white rounded-lg shadow-sm p-8">
-            <div className="flex items-center mb-6">
-              <svg className="w-12 h-12 text-green-500 mr-4" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
-                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div>
-                <h2 className="text-3xl font-bold text-gray-800">Hello Doctor</h2>
-                <p className="text-gray-600 mt-1">Welcome, Dr. {user?.fullName || user?.full_name}! Your account is active and approved.</p>
-              </div>
-            </div>
-            
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-teal-50 p-6 rounded-lg">
-                <h3 className="font-semibold text-teal-800 mb-2">Patients</h3>
-                <p className="text-3xl font-bold text-teal-600">0</p>
-              </div>
-              <div className="bg-blue-50 p-6 rounded-lg">
-                <h3 className="font-semibold text-blue-800 mb-2">Appointments</h3>
-                <p className="text-3xl font-bold text-blue-600">0</p>
-              </div>
-              <div className="bg-purple-50 p-6 rounded-lg">
-                <h3 className="font-semibold text-purple-800 mb-2">Consultations</h3>
-                <p className="text-3xl font-bold text-purple-600">0</p>
-              </div>
-            </div>
-
-            {/* Doctor Info */}
-            <div className="mt-8 border-t pt-8">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Your Professional Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">Email</p>
-                  <p className="font-medium text-gray-800">{user?.email}</p>
-                </div>
-                {(user?.phoneNumber || user?.phone_number) && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Phone Number</p>
-                    <p className="font-medium text-gray-800">{user?.phoneNumber || user?.phone_number}</p>
-                  </div>
-                )}
-                {user?.specialization && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Specialization</p>
-                    <p className="font-medium text-gray-800">{user.specialization}</p>
-                  </div>
-                )}
-                {user?.experience && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600">Experience</p>
-                    <p className="font-medium text-gray-800">{user.experience} years</p>
-                  </div>
-                )}
-                {(user?.licenseNumber || user?.license_number) && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600">License Number</p>
-                    <p className="font-medium text-gray-800">{user?.licenseNumber || user?.license_number}</p>
-                  </div>
-                )}
-                {user?.cnic && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-600">CNIC</p>
-                    <p className="font-medium text-gray-800">{user.cnic}</p>
-                  </div>
-                )}
-                {(user?.clinicAddress || user?.clinic_address) && (
-                  <div className="p-4 bg-gray-50 rounded-lg md:col-span-2">
-                    <p className="text-sm text-gray-600">Previous Clinic/Hospital Address</p>
-                    <p className="font-medium text-gray-800">{user?.clinicAddress || user?.clinic_address}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   );
 };
 
-export default DoctorDashboard;
+const ApprovedDoctorDashboard = ({ user, logout, activeTab, setActiveTab, renderContent }) => {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 bg-white border-r border-gray-200 fixed h-screen">
+        {/* Logo */}
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-linear-to-br from-teal-400 to-cyan-500 rounded-xl flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <h1 className="text-lg font-bold bg-linear-to-r from-teal-500 to-cyan-500 bg-clip-text text-transparent">
+              Physician Assistant
+            </h1>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 p-4">
+          <button
+            onClick={() => setActiveTab('home')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors ${
+              activeTab === 'home' 
+                ? 'bg-gradient-to-r from-teal-400 to-cyan-500 text-white' 
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            <span className="font-medium">Home</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('patients')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors ${
+              activeTab === 'patients' 
+                ? 'bg-gradient-to-r from-teal-400 to-cyan-500 text-white' 
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <span className="font-medium">Patients</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('chat')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors ${
+              activeTab === 'chat' 
+                ? 'bg-gradient-to-r from-teal-400 to-cyan-500 text-white' 
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <span className="font-medium">Messages</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('notifications')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors ${
+              activeTab === 'notifications' 
+                ? 'bg-gradient-to-r from-teal-400 to-cyan-500 text-white' 
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            <span className="font-medium">Notifications</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors ${
+              activeTab === 'profile' 
+                ? 'bg-gradient-to-r from-teal-400 to-cyan-500 text-white' 
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            <span className="font-medium">Profile</span>
+          </button>
+        </nav>
+
+        {/* Logout Button */}
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span className="font-medium">Logout</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 lg:ml-64 p-4 md:p-6">
+        {renderContent()}
+      </main>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center py-2 z-50">
+        <button
+          onClick={() => setActiveTab('home')}
+          className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-colors ${
+            activeTab === 'home' ? 'text-teal-500' : 'text-gray-400'
+          }`}
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          <span className="text-xs font-medium">Home</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('patients')}
+          className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-colors ${
+            activeTab === 'patients' ? 'text-teal-500' : 'text-gray-400'
+          }`}
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          <span className="text-xs font-medium">Patients</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('chat')}
+          className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-colors ${
+            activeTab === 'chat' ? 'text-teal-500' : 'text-gray-400'
+          }`}
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+          <span className="text-xs font-medium">Chat</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('notifications')}
+          className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-colors ${
+            activeTab === 'notifications' ? 'text-teal-500' : 'text-gray-400'
+          }`}
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          <span className="text-xs font-medium">Alerts</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('profile')}
+          className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-colors ${
+            activeTab === 'profile' ? 'text-teal-500' : 'text-gray-400'
+          }`}
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          <span className="text-xs font-medium">Profile</span>
+        </button>
+      </nav>
+    </div>
+  );
+};
+
+// Main Component Export
+const DoctorDashboardWrapper = () => {
+  const { user, logout, updateUser } = useAuth();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('home');
+  
+  const isApproved = user?.approval_status === 'approved' || user?.approvalStatus === 'approved';
+  const isPending = user?.approval_status === 'pending' || user?.approvalStatus === 'pending';
+  const isRejected = user?.approval_status === 'rejected' || user?.approvalStatus === 'rejected';
+
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    fullName: user?.full_name || user?.fullName || '',
+    phoneNumber: user?.phone_number || user?.phoneNumber || '',
+    age: user?.age || '',
+    gender: user?.gender || '',
+    cnic: user?.cnic || '',
+    specialization: user?.specialization || '',
+    experience: user?.experience || '',
+    licenseNumber: user?.license_number || user?.licenseNumber || '',
+    clinicAddress: user?.clinic_address || user?.clinicAddress || '',
+    consultationFee: user?.consultation_fee || user?.consultationFee || '',
+  });
+  const [cnicImage, setCnicImage] = useState(null);
+  const [degreeImage, setDegreeImage] = useState(null);
+  const [error, setError] = useState('');
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const renderContent = () => {
+    if (!isApproved) return null;
+    
+    switch (activeTab) {
+      case 'home':
+        return <DoctorHome user={user} onNavigate={setActiveTab} />;
+      case 'patients':
+        return <DoctorPatients onNavigate={setActiveTab} />;
+      case 'chat':
+        return <DoctorChat onNavigate={setActiveTab} />;
+      case 'notifications':
+        return <DoctorNotifications onNavigate={setActiveTab} />;
+      case 'profile':
+        return <DoctorProfile onNavigate={setActiveTab} />;
+      default:
+        return <DoctorHome user={user} onNavigate={setActiveTab} />;
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleFileChange = (e, type) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (type === 'cnic') {
+        setCnicImage(file);
+      } else if (type === 'degree') {
+        setDegreeImage(file);
+      }
+    }
+  };
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      const submitData = new FormData();
+      submitData.append('fullName', formData.fullName);
+      submitData.append('phoneNumber', formData.phoneNumber);
+      submitData.append('age', formData.age);
+      submitData.append('gender', formData.gender);
+      submitData.append('cnic', formData.cnic);
+      submitData.append('specialization', formData.specialization);
+      submitData.append('experience', formData.experience);
+      submitData.append('licenseNumber', formData.licenseNumber);
+      submitData.append('clinicAddress', formData.clinicAddress);
+      
+      if (cnicImage) submitData.append('cnicImage', cnicImage);
+      if (degreeImage) submitData.append('degreeImage', degreeImage);
+
+      const response = await api.put('/auth/update-profile', submitData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // Update user context
+      updateUser(response.data.user);
+      
+      alert('Profile updated successfully! Your account is now pending approval.');
+      setShowEditForm(false);
+    } catch (err) {
+      console.error('Update error:', err);
+      setError(err.response?.data?.error || 'Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // If approved, use the new dashboard layout
+  if (isApproved) {
+    return (
+      <ApprovedDoctorDashboard 
+        user={user}
+        logout={logout}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        renderContent={renderContent}
+      />
+    );
+  }
+
+  // Otherwise, use the original approval/rejection flow
+  return (
+    <DoctorDashboard 
+      user={user}
+      logout={logout}
+      updateUser={updateUser}
+      navigate={navigate}
+      isApproved={isApproved}
+      isPending={isPending}
+      isRejected={isRejected}
+      showEditForm={showEditForm}
+      setShowEditForm={setShowEditForm}
+      loading={loading}
+      formData={formData}
+      handleInputChange={handleInputChange}
+      cnicImage={cnicImage}
+      degreeImage={degreeImage}
+      handleFileChange={handleFileChange}
+      error={error}
+      handleUpdateProfile={handleUpdateProfile}
+    />
+  );
+};
+
+export default DoctorDashboardWrapper;

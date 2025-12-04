@@ -20,6 +20,7 @@ export const users = pgTable('users', {
   specialization: varchar('specialization', { length: 255 }),
   experience: integer('experience'), // years of experience
   licenseNumber: varchar('license_number', { length: 100 }),
+  consultationFee: integer('consultation_fee'), // consultation fee in currency
   
   // Approval status for doctors
   approvalStatus: varchar('approval_status', { length: 20 }).default('pending'),
