@@ -136,7 +136,7 @@ const PatientDoctors = ({ onNavigate }) => {
                   </div>
                   <div className="flex items-center gap-1">
                     <span>💵</span>
-                    <span className="font-medium">${doctor.fee}</span>
+                    <span className="font-medium">PKR {doctor.fee}</span>
                   </div>
                 </div>
                 <div className="flex items-start gap-1 mt-2 text-xs md:text-sm text-gray-500">
@@ -257,7 +257,7 @@ const PatientDoctors = ({ onNavigate }) => {
                     <span className="text-xl md:text-3xl shrink-0">💵</span>
                     <span className="font-medium text-xs md:text-base">Consultation Fee</span>
                   </div>
-                  <span className="text-xl md:text-3xl font-bold text-teal-600 shrink-0">${selectedDoctor.fee}</span>
+                  <span className="text-xl md:text-3xl font-bold text-teal-600 shrink-0">PKR {selectedDoctor.fee}</span>
                 </div>
               </div>
 

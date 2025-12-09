@@ -100,10 +100,12 @@ const AdminDashboard = () => {
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center">
-            <div className="w-10 h-10 bg-teal-500 rounded-lg flex items-center justify-center mr-3">
-              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-              </svg>
+            <div className="w-12 h-12 mr-3 flex items-center justify-center">
+              <img 
+                src="/logo.jpg" 
+                alt="Logo" 
+                className="w-full h-full object-contain rounded-lg"
+              />
             </div>
             <h1 className="text-xl font-semibold text-teal-500">Physician Assistant</h1>
           </div>

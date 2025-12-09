@@ -299,19 +299,19 @@ const DoctorProfile = ({ onNavigate }) => {
               <p className="text-xs text-gray-500">Consultation Fee</p>
               {isEditing ? (
                 <div className="relative">
-                  <span className="absolute left-0 text-sm font-medium text-gray-500">Rs.</span>
+                  <span className="absolute left-0 text-sm font-medium text-gray-500">PKR</span>
                   <input
                     type="number"
                     name="consultationFee"
                     value={formData.consultationFee}
                     onChange={handleInputChange}
                     min="0"
-                    className="w-full pl-8 text-sm font-medium text-gray-800 bg-transparent border-b border-gray-300 focus:border-teal-500 outline-none"
+                    className="w-full pl-10 text-sm font-medium text-gray-800 bg-transparent border-b border-gray-300 focus:border-teal-500 outline-none"
                   />
                 </div>
               ) : (
                 <p className="text-sm font-medium text-gray-800">
-                  {formData.consultationFee ? `Rs. ${formData.consultationFee}` : 'Not provided'}
+                  {formData.consultationFee ? `PKR ${formData.consultationFee}` : 'Not provided'}
                 </p>
               )}
             </div>

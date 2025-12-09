@@ -39,18 +39,12 @@ const Login = () => {
       <div className="max-w-md w-full bg-white rounded-lg shadow-sm p-8">
         {/* Logo and Title */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 bg-teal-500 rounded-lg flex items-center justify-center mb-4">
-            <svg
-              className="w-8 h-8 text-white"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
-                clipRule="evenodd"
-              />
-            </svg>
+          <div className="w-20 h-20 mb-4 flex items-center justify-center">
+            <img 
+              src="/logo.jpg" 
+              alt="Logo" 
+              className="w-full h-full object-contain rounded-lg"
+            />
           </div>
           <h1 className="text-2xl font-semibold text-teal-500">
             Physician Assistant
