@@ -98,6 +98,31 @@ const Register = () => {
       setError('Doctor must be at least 20 years old');
       return;
     }
+    
+    // Validate password
+    if (formData.password.length < 5) {
+      setError('Password must be at least 5 characters long');
+      return;
+    }
+    
+    const hasUpperCase = /[A-Z]/.test(formData.password);
+    const hasLowerCase = /[a-z]/.test(formData.password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(formData.password);
+    
+    if (!hasUpperCase) {
+      setError('Password must contain at least one uppercase letter');
+      return;
+    }
+    
+    if (!hasLowerCase) {
+      setError('Password must contain at least one lowercase letter');
+      return;
+    }
+    
+    if (!hasSpecialChar) {
+      setError('Password must contain at least one special character');
+      return;
+    }
 
     setLoading(true);
 
