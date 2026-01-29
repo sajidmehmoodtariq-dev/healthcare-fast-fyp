@@ -1,9 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://healthcare-fast-fyp.vercel.app/api';
 
 const Register = () => {
   const [role, setRole] = useState('patient');
+  const [step, setStep] = useState('form'); // 'form' or 'otp'
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -26,10 +33,21 @@ const Register = () => {
   const navigate = useNavigate();
   const { signup } = useAuth();
 
+  // Timer effect for resend OTP
+  useEffect(() => {
+    let interval;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
-    // Validation for name fields - only letters and spaces
+    // Validation for name fields - only letters (both uppercase and lowercase) and spaces
     if (name === 'fullName') {
       const nameRegex = /^[a-zA-Z\s]*$/;
       if (!nameRegex.test(value)) {
@@ -37,15 +55,39 @@ const Register = () => {
       }
     }
     
-    // Validation for CNIC - only digits and hyphens, max 15 chars (13 digits + 2 hyphens)
+    // Validation for CNIC - only digits, auto-format with hyphens
     if (name === 'cnic') {
-      const cnicValue = value.replace(/[^0-9-]/g, ''); // Only allow digits and hyphens
-      if (cnicValue.length <= 15) {
-        setFormData((prev) => ({
-          ...prev,
-          [name]: cnicValue,
-        }));
+      // Remove all non-digit characters
+      const digitsOnly = value.replace(/\D/g, '');
+      
+      // Limit to 13 digits
+      if (digitsOnly.length > 13) {
+        return;
       }
+      
+      // Auto-format with hyphens: XXXXX-XXXXXXX-X
+      let formatted = digitsOnly;
+      if (digitsOnly.length > 5) {
+        formatted = digitsOnly.slice(0, 5) + '-' + digitsOnly.slice(5);
+      }
+      if (digitsOnly.length > 12) {
+        formatted = digitsOnly.slice(0, 5) + '-' + digitsOnly.slice(5, 12) + '-' + digitsOnly.slice(12);
+      }
+      
+      setFormData((prev) => ({
+        ...prev,
+        [name]: formatted,
+      }));
+      return;
+    }
+    
+    // Validation for phone number - only digits
+    if (name === 'phoneNumber') {
+      const phoneValue = value.replace(/\D/g, ''); // Remove all non-digit characters
+      setFormData((prev) => ({
+        ...prev,
+        [name]: phoneValue,
+      }));
       return;
     }
     
@@ -74,9 +116,93 @@ const Register = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSendOTP = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await axios.post(`${API_URL}/auth/send-otp`, {
+        email: formData.email,
+      });
+
+      if (response.data) {
+        setOtpSent(true);
+        setStep('otp');
+        setResendTimer(60); // 60 seconds cooldown
+        setError('');
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to send OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!otp || otp.length !== 6) {
+      setError('Please enter a valid 6-digit OTP');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await axios.post(`${API_URL}/auth/verify-otp`, {
+        email: formData.email,
+        otp: otp,
+      });
+
+      if (response.data.verified) {
+        setStep('form');
+        setError('');
+        // Continue with form submission
+        await handleFinalSubmit();
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Invalid OTP');
+      setLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    if (resendTimer > 0) return;
+    
+    setError('');
+    setLoading(true);
+
+    try {
+      await axios.post(`${API_URL}/auth/send-otp`, {
+        email: formData.email,
+      });
+      setResendTimer(60);
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to resend OTP');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFinalSubmit = async () => {
+    // Validate email format with proper TLD (like .com, .org, etc.)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address (e.g., example@gmail.com)');
+      setLoading(false);
+      return;
+    }
 
     // Validate CNIC for doctors
     if (role === 'doctor' && !formData.cnic) {
@@ -166,6 +292,66 @@ const Register = () => {
     setLoading(false);
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    // Basic validation before sending OTP
+    if (!formData.fullName || !formData.email || !formData.password) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    // Validate password
+    if (formData.password.length < 5) {
+      setError('Password must be at least 5 characters long');
+      return;
+    }
+    
+    const hasUpperCase = /[A-Z]/.test(formData.password);
+    const hasLowerCase = /[a-z]/.test(formData.password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(formData.password);
+    
+    if (!hasUpperCase) {
+      setError('Password must contain at least one uppercase letter');
+      return;
+    }
+    
+    if (!hasLowerCase) {
+      setError('Password must contain at least one lowercase letter');
+      return;
+    }
+    
+    if (!hasSpecialChar) {
+      setError('Password must contain at least one special character');
+      return;
+    }
+
+    // Validate CNIC format if provided
+    if (formData.cnic) {
+      const cnicDigits = formData.cnic.replace(/[^0-9]/g, '');
+      if (cnicDigits.length !== 13) {
+        setError('CNIC must be exactly 13 digits');
+        return;
+      }
+    }
+
+    // For doctors, validate required fields
+    if (role === 'doctor') {
+      if (!formData.cnic) {
+        setError('CNIC is required for doctors');
+        return;
+      }
+      if (formData.age && parseInt(formData.age) < 20) {
+        setError('Doctor must be at least 20 years old');
+        return;
+      }
+    }
+
+    // Send OTP
+    await handleSendOTP(e);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-sm p-8">
@@ -197,7 +383,85 @@ const Register = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        {/* OTP Verification Modal */}
+        {step === 'otp' && (
+          <div className="mb-6 p-6 bg-teal-50 border-2 border-teal-500 rounded-lg">
+            <div className="text-center mb-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-teal-500 rounded-full mb-3">
+                <svg
+                  className="w-8 h-8 text-white"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">Verify Your Email</h3>
+              <p className="text-sm text-gray-600">
+                We've sent a 6-digit OTP to <span className="font-semibold">{formData.email}</span>
+              </p>
+            </div>
+
+            <form onSubmit={handleVerifyOTP}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Enter OTP
+                </label>
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '');
+                    if (value.length <= 6) setOtp(value);
+                  }}
+                  placeholder="000000"
+                  maxLength="6"
+                  className="w-full px-4 py-3 text-center text-2xl tracking-widest border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  OTP expires in 10 minutes
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || otp.length !== 6}
+                className="w-full bg-teal-500 hover:bg-teal-600 text-white font-medium py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-3"
+              >
+                {loading ? 'Verifying...' : 'Verify OTP'}
+              </button>
+
+              <div className="flex items-center justify-between text-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep('form');
+                    setOtp('');
+                    setOtpSent(false);
+                  }}
+                  className="text-gray-600 hover:text-gray-800"
+                >
+                  ← Change Email
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResendOTP}
+                  disabled={resendTimer > 0}
+                  className="text-teal-600 hover:text-teal-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend OTP'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ display: step === 'form' ? 'block' : 'none' }}>
           {/* Role Selection - Only Patient and Doctor can signup */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">

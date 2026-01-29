@@ -1,8 +1,82 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { supabase } from '../config/supabase.js';
-import { uploadFileToSupabase } from '../config/supabase.js';
+import { uploadFileToSupabase } from '../config/supabase.js';import { generateOTP, sendOTPEmail, storeOTP, verifyOTP } from '../utils/emailService.js';
 
+// Send OTP for email verification
+export const sendOTP = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Check if user already exists
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .single();
+    
+    if (existingUser) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    // Generate OTP
+    const otp = generateOTP();
+
+    // Store OTP
+    storeOTP(email, otp);
+
+    // Send OTP email
+    const result = await sendOTPEmail(email, otp);
+
+    if (!result.success) {
+      return res.status(500).json({ error: 'Failed to send OTP email' });
+    }
+
+    res.status(200).json({ 
+      message: 'OTP sent successfully to your email',
+      expiresIn: '10 minutes'
+    });
+  } catch (error) {
+    console.error('Send OTP error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+};
+
+// Verify OTP
+export const verifyOTPEndpoint = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ error: 'Email and OTP are required' });
+    }
+
+    // Verify OTP
+    const result = verifyOTP(email, otp);
+
+    if (!result.valid) {
+      return res.status(400).json({ error: result.message });
+    }
+
+    res.status(200).json({ 
+      message: result.message,
+      verified: true
+    });
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+};
 export const signup = async (req, res) => {
   try {
     const {
