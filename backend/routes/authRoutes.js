@@ -1,5 +1,5 @@
 import express from 'express';
-import { signup, login, getProfile, updateDoctorProfile, sendOTP, verifyOTPEndpoint } from '../controllers/authController.js';
+import { signup, login, getProfile, updateDoctorProfile, sendOTP, verifyOTPEndpoint, sendPasswordResetOTP, resetPassword } from '../controllers/authController.js';
 import { upload } from '../middleware/upload.js';
 import { authenticateToken } from '../middleware/auth.js';
 
@@ -8,6 +8,10 @@ const router = express.Router();
 // OTP routes
 router.post('/send-otp', sendOTP);
 router.post('/verify-otp', verifyOTPEndpoint);
+
+// Forgot password routes
+router.post('/forgot-password', sendPasswordResetOTP);
+router.post('/reset-password', resetPassword);
 
 // Signup route with file upload for doctors
 router.post(

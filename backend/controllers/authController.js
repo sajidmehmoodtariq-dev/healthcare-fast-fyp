@@ -77,6 +77,120 @@ export const verifyOTPEndpoint = async (req, res) => {
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 };
+
+// Send OTP for password reset
+export const sendPasswordResetOTP = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Check if user exists
+    const { data: user } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('email', email)
+      .single();
+    
+    if (!user) {
+      return res.status(404).json({ error: 'No account found with this email' });
+    }
+
+    // Generate OTP
+    const otp = generateOTP();
+
+    // Store OTP
+    storeOTP(email, otp);
+
+    // Send OTP email
+    const result = await sendOTPEmail(email, otp);
+
+    if (!result.success) {
+      return res.status(500).json({ error: 'Failed to send OTP email' });
+    }
+
+    res.status(200).json({ 
+      message: 'Password reset OTP sent to your email',
+      expiresIn: '10 minutes'
+    });
+  } catch (error) {
+    console.error('Send password reset OTP error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+};
+
+// Reset password with OTP
+export const resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ error: 'Email, OTP, and new password are required' });
+    }
+
+    // Validate password
+    if (newPassword.length < 5) {
+      return res.status(400).json({ error: 'Password must be at least 5 characters long' });
+    }
+    
+    const hasUpperCase = /[A-Z]/.test(newPassword);
+    const hasLowerCase = /[a-z]/.test(newPassword);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
+    
+    if (!hasUpperCase || !hasLowerCase || !hasSpecialChar) {
+      return res.status(400).json({ 
+        error: 'Password must contain at least one uppercase letter, one lowercase letter, and one special character' 
+      });
+    }
+
+    // Verify OTP
+    const otpResult = verifyOTP(email, otp);
+
+    if (!otpResult.valid) {
+      return res.status(400).json({ error: otpResult.message });
+    }
+
+    // Check if user exists
+    const { data: user } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .single();
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ password: hashedPassword })
+      .eq('email', email);
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+
+    res.status(200).json({ 
+      message: 'Password reset successfully. You can now login with your new password.' 
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+};
+
 export const signup = async (req, res) => {
   try {
     const {
