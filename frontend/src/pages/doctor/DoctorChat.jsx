@@ -1,149 +1,212 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://healthcare-fast-fyp.vercel.app/api';
 
 const DoctorChat = ({ onNavigate }) => {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [activeTab, setActiveTab] = useState('chat'); // 'chat' or 'prescriptions'
-  const [chatMessages, setChatMessages] = useState({});
+  const [patients, setPatients] = useState([]);
+  const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
+  const [patientPrescriptions, setPatientPrescriptions] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [prescriptionForm, setPrescriptionForm] = useState({
-    medication: '',
+    diagnosis: '',
+    medications: '',
     dosage: '',
-    frequency: '',
-    duration: '',
+    instructions: '',
     notes: ''
   });
 
-  // Patient prescriptions stored in state
-  const [patientPrescriptions, setPatientPrescriptions] = useState({
-    1: [
-      {
-        id: 1,
-        medication: 'Lisinopril',
-        dosage: '10mg',
-        frequency: 'Once daily',
-        duration: '30 days',
-        date: 'Dec 1, 2025',
-        notes: 'Take with food in the morning'
-      }
-    ],
-    2: [
-      {
-        id: 1,
-        medication: 'Metformin',
-        dosage: '500mg',
-        frequency: 'Twice daily',
-        duration: '60 days',
-        date: 'Nov 28, 2025',
-        notes: 'Take with meals'
-      }
-    ],
-    3: []
-  });
+  useEffect(() => {
+    fetchPatients();
+  }, []);
 
-  const patients = [
-    {
-      id: 1,
-      name: 'Sarah Johnson',
-      age: 45,
-      avatar: '👩',
-      lastMessage: 'Thank you doctor!',
-      unread: 2,
-      time: '10:30 AM'
-    },
-    {
-      id: 2,
-      name: 'Michael Chen',
-      age: 32,
-      avatar: '👨',
-      lastMessage: 'When should I take the medication?',
-      unread: 0,
-      time: 'Yesterday'
-    },
-    {
-      id: 3,
-      name: 'Emily Davis',
-      age: 28,
-      avatar: '👩‍🦰',
-      lastMessage: 'I feel much better now',
-      unread: 1,
-      time: 'Nov 30'
+  useEffect(() => {
+    if (selectedPatient && activeTab === 'chat') {
+      fetchMessages();
+      const interval = setInterval(fetchMessages, 5000); // Poll every 5 seconds
+      return () => clearInterval(interval);
+    } else if (selectedPatient && activeTab === 'prescriptions') {
+      fetchPrescriptions();
     }
-  ];
+  }, [selectedPatient, activeTab]);
 
-  const defaultMessages = {
-    1: [
-      { type: 'patient', text: 'Hello doctor, I have a question about my medication', time: '10:15 AM' },
-      { type: 'doctor', text: 'Hello Sarah! Of course, what would you like to know?', time: '10:20 AM' },
-      { type: 'patient', text: 'Thank you doctor!', time: '10:30 AM' }
-    ],
-    2: [
-      { type: 'patient', text: 'When should I take the medication?', time: 'Yesterday' },
-      { type: 'doctor', text: 'Take it twice daily with your meals - once in the morning and once in the evening.', time: 'Yesterday' }
-    ],
-    3: [
-      { type: 'patient', text: 'I feel much better now', time: 'Nov 30' }
-    ]
+  const fetchPatients = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      // Fetch existing chat conversations
+      const chatResponse = await axios.get(`${API_URL}/chat/conversations`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const existingConversations = chatResponse.data.conversations || [];
+      
+      // Fetch approved appointments to get patients
+      const appointmentsResponse = await axios.get(`${API_URL}/appointments/doctor`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Get unique patients from approved appointments
+      const approvedAppointments = appointmentsResponse.data.appointments.filter(
+        apt => apt.status === 'approved'
+      );
+      
+      const patientsMap = new Map();
+      
+      // Add patients from appointments
+      approvedAppointments.forEach(apt => {
+        const patientId = apt.patient.id || apt.patient_id;
+        if (!patientsMap.has(patientId)) {
+          patientsMap.set(patientId, {
+            id: patientId,
+            name: apt.patient.full_name,
+            age: apt.patient.age || 'N/A',
+            gender: apt.patient.gender || 'N/A',
+            avatar: apt.patient.gender === 'Male' ? '👨' : apt.patient.gender === 'Female' ? '👩' : '👤',
+            lastMessage: 'Start a conversation',
+            lastMessageTime: new Date(apt.appointment_date),
+            unreadCount: 0
+          });
+        }
+      });
+      
+      // Update with existing chat conversations
+      existingConversations.forEach(conv => {
+        if (patientsMap.has(conv.partnerId)) {
+          const patient = patientsMap.get(conv.partnerId);
+          patient.lastMessage = conv.lastMessage;
+          patient.lastMessageTime = new Date(conv.lastMessageTime);
+          patient.unreadCount = conv.unreadCount || 0;
+        } else {
+          patientsMap.set(conv.partnerId, {
+            id: conv.partnerId,
+            name: conv.partnerName,
+            age: 'N/A',
+            gender: 'N/A',
+            avatar: '👤',
+            lastMessage: conv.lastMessage,
+            lastMessageTime: new Date(conv.lastMessageTime),
+            unreadCount: conv.unreadCount || 0
+          });
+        }
+      });
+      
+      setPatients(Array.from(patientsMap.values()).sort((a, b) => b.lastMessageTime - a.lastMessageTime));
+    } catch (err) {
+      console.error('Error fetching patients:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMessages = async () => {
+    if (!selectedPatient) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/chat/messages/${selectedPatient.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setMessages(response.data.messages);
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+    }
+  };
+
+  const fetchPrescriptions = async () => {
+    if (!selectedPatient) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/prescriptions?patientId=${selectedPatient.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setPatientPrescriptions(response.data.prescriptions);
+    } catch (err) {
+      console.error('Error fetching prescriptions:', err);
+    }
   };
 
   const handlePatientSelect = (patient) => {
     setSelectedPatient(patient);
     setActiveTab('chat');
-    if (!chatMessages[patient.id]) {
-      setChatMessages(prev => ({
-        ...prev,
-        [patient.id]: defaultMessages[patient.id] || []
-      }));
+  };
+
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || !selectedPatient) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${API_URL}/chat/send`,
+        {
+          receiverId: selectedPatient.id,
+          message: inputMessage.trim()
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      setInputMessage('');
+      fetchMessages();
+    } catch (err) {
+      console.error('Error sending message:', err);
+      alert('Failed to send message');
     }
   };
 
-  const handleSendMessage = () => {
-    if (!inputMessage.trim() || !selectedPatient) return;
-    
-    const newMessage = {
-      type: 'doctor',
-      text: inputMessage,
-      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-    };
-    
-    setChatMessages(prev => ({
-      ...prev,
-      [selectedPatient.id]: [...(prev[selectedPatient.id] || []), newMessage]
-    }));
-    setInputMessage('');
-  };
-
-  const handlePrescriptionSubmit = (e) => {
+  const handlePrescriptionSubmit = async (e) => {
     e.preventDefault();
     
     if (!selectedPatient) return;
     
-    // Create new prescription
-    const newPrescription = {
-      id: Date.now(), // Using timestamp as unique ID
-      medication: prescriptionForm.medication,
-      dosage: prescriptionForm.dosage,
-      frequency: prescriptionForm.frequency,
-      duration: prescriptionForm.duration,
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      notes: prescriptionForm.notes
-    };
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${API_URL}/prescriptions`,
+        {
+          patientId: selectedPatient.id,
+          diagnosis: prescriptionForm.diagnosis,
+          medications: prescriptionForm.medications,
+          dosage: prescriptionForm.dosage,
+          instructions: prescriptionForm.instructions,
+          notes: prescriptionForm.notes
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      // Reset form
+      setPrescriptionForm({
+        diagnosis: '',
+        medications: '',
+        dosage: '',
+        instructions: '',
+        notes: ''
+      });
+      
+      alert('Prescription added successfully!');
+      fetchPrescriptions();
+    } catch (err) {
+      console.error('Error adding prescription:', err);
+      alert('Failed to add prescription');
+    }
+  };
+
+  const formatTime = (date) => {
+    const msgDate = new Date(date);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
     
-    // Add prescription to patient's prescription list
-    setPatientPrescriptions(prev => ({
-      ...prev,
-      [selectedPatient.id]: [...(prev[selectedPatient.id] || []), newPrescription]
-    }));
-    
-    // Reset form
-    setPrescriptionForm({
-      medication: '',
-      dosage: '',
-      frequency: '',
-      duration: '',
-      notes: ''
-    });
-    
-    alert('Prescription added successfully!');
+    if (msgDate.toDateString() === today.toDateString()) {
+      return msgDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    } else if (msgDate.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    } else {
+      return msgDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
   };
 
   return (
@@ -172,31 +235,41 @@ const DoctorChat = ({ onNavigate }) => {
             />
           </div>
           <div className="divide-y divide-gray-100">
-            {patients.map(patient => (
-              <button
-                key={patient.id}
-                onClick={() => handlePatientSelect(patient)}
-                className={`w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left ${
-                  selectedPatient?.id === patient.id ? 'bg-teal-50' : ''
-                }`}
-              >
-                <div className="w-12 h-12 bg-gradient-to-br from-teal-100 to-cyan-100 rounded-xl flex items-center justify-center text-2xl shrink-0">
-                  {patient.avatar}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-semibold text-gray-800 text-sm truncate">{patient.name}</h3>
-                    <span className="text-xs text-gray-400">{patient.time}</span>
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
+              </div>
+            ) : patients.length === 0 ? (
+              <div className="text-center py-8 px-4">
+                <p className="text-gray-500 text-sm">No patients with approved appointments yet</p>
+              </div>
+            ) : (
+              patients.map(patient => (
+                <button
+                  key={patient.id}
+                  onClick={() => handlePatientSelect(patient)}
+                  className={`w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left ${
+                    selectedPatient?.id === patient.id ? 'bg-teal-50' : ''
+                  }`}
+                >
+                  <div className="w-12 h-12 bg-gradient-to-br from-teal-100 to-cyan-100 rounded-xl flex items-center justify-center text-2xl shrink-0">
+                    {patient.avatar}
                   </div>
-                  <p className="text-xs text-gray-500 truncate">{patient.lastMessage}</p>
-                </div>
-                {patient.unread > 0 && (
-                  <div className="w-5 h-5 bg-teal-500 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">
-                    {patient.unread}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="font-semibold text-gray-800 text-sm truncate">{patient.name}</h3>
+                      <span className="text-xs text-gray-400">{formatTime(patient.lastMessageTime)}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 truncate">{patient.lastMessage}</p>
                   </div>
-                )}
-              </button>
-            ))}
+                  {patient.unreadCount > 0 && (
+                    <div className="w-5 h-5 bg-teal-500 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">
+                      {patient.unreadCount}
+                    </div>
+                  )}
+                </button>
+              ))
+            )}
           </div>
         </div>
 
@@ -260,18 +333,29 @@ const DoctorChat = ({ onNavigate }) => {
             {activeTab === 'chat' && (
               <>
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {(chatMessages[selectedPatient.id] || []).map((msg, idx) => (
-                    <div key={idx} className={`flex ${msg.type === 'doctor' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[85%] md:max-w-[70%] ${
-                        msg.type === 'doctor' 
-                          ? 'bg-gradient-to-br from-teal-400 to-cyan-500 text-white' 
-                          : 'bg-white text-gray-800 border border-gray-200'
-                      } rounded-2xl p-3 md:p-4 shadow-sm`}>
-                        <p className="text-sm md:text-base">{msg.text}</p>
-                        <p className={`text-xs mt-1 ${msg.type === 'doctor' ? 'text-white text-opacity-70' : 'text-gray-400'}`}>{msg.time}</p>
-                      </div>
+                  {messages.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 text-sm">No messages yet. Start the conversation!</p>
                     </div>
-                  ))}
+                  ) : (
+                    messages.map((msg, idx) => {
+                      const isDoctor = msg.sender_id !== selectedPatient.id;
+                      return (
+                        <div key={idx} className={`flex ${isDoctor ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[85%] md:max-w-[70%] ${
+                            isDoctor
+                              ? 'bg-gradient-to-br from-teal-400 to-cyan-500 text-white' 
+                              : 'bg-white text-gray-800 border border-gray-200'
+                          } rounded-2xl p-3 md:p-4 shadow-sm`}>
+                            <p className="text-sm md:text-base">{msg.message}</p>
+                            <p className={`text-xs mt-1 ${isDoctor ? 'text-white text-opacity-70' : 'text-gray-400'}`}>
+                              {new Date(msg.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
 
                 {/* Chat Input */}
@@ -302,20 +386,28 @@ const DoctorChat = ({ onNavigate }) => {
             {activeTab === 'prescriptions' && (
               <div className="flex-1 overflow-y-auto p-4">
                 {/* Previous Prescriptions */}
-                {patientPrescriptions[selectedPatient.id]?.length > 0 && (
+                {patientPrescriptions.length > 0 && (
                   <div className="mb-6">
                     <h3 className="font-bold text-gray-800 mb-3">Previous Prescriptions</h3>
                     <div className="space-y-3">
-                      {patientPrescriptions[selectedPatient.id].map(prescription => (
+                      {patientPrescriptions.map(prescription => (
                         <div key={prescription.id} className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm">
                           <div className="flex items-start justify-between mb-2">
-                            <h4 className="font-semibold text-gray-800">{prescription.medication}</h4>
-                            <span className="text-xs text-gray-500">{prescription.date}</span>
+                            <h4 className="font-semibold text-gray-800">Prescription #{prescription.id}</h4>
+                            <span className="text-xs text-gray-500">
+                              {new Date(prescription.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
                           </div>
+                          {prescription.diagnosis && (
+                            <div className="mb-2 p-2 bg-blue-50 rounded-lg">
+                              <p className="text-xs font-medium text-blue-900">Diagnosis</p>
+                              <p className="text-sm text-blue-700">{prescription.diagnosis}</p>
+                            </div>
+                          )}
                           <div className="space-y-1 text-sm text-gray-600">
-                            <p><span className="font-medium">Dosage:</span> {prescription.dosage}</p>
-                            <p><span className="font-medium">Frequency:</span> {prescription.frequency}</p>
-                            <p><span className="font-medium">Duration:</span> {prescription.duration}</p>
+                            <p><span className="font-medium">Medications:</span> {prescription.medications}</p>
+                            {prescription.dosage && <p><span className="font-medium">Dosage:</span> {prescription.dosage}</p>}
+                            {prescription.instructions && <p><span className="font-medium">Instructions:</span> {prescription.instructions}</p>}
                             {prescription.notes && (
                               <p className="text-xs text-gray-500 mt-2 italic">{prescription.notes}</p>
                             )}
@@ -331,12 +423,23 @@ const DoctorChat = ({ onNavigate }) => {
                   <h3 className="font-bold text-gray-800 mb-4">Add New Prescription</h3>
                   <form onSubmit={handlePrescriptionSubmit} className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Medication Name</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Diagnosis</label>
                       <input
                         type="text"
-                        value={prescriptionForm.medication}
-                        onChange={(e) => setPrescriptionForm({...prescriptionForm, medication: e.target.value})}
+                        value={prescriptionForm.diagnosis}
+                        onChange={(e) => setPrescriptionForm({...prescriptionForm, diagnosis: e.target.value})}
+                        placeholder="e.g., Hypertension"
                         className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Medications</label>
+                      <textarea
+                        value={prescriptionForm.medications}
+                        onChange={(e) => setPrescriptionForm({...prescriptionForm, medications: e.target.value})}
+                        placeholder="List medications..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm resize-none"
+                        rows="2"
                         required
                       />
                     </div>
@@ -346,31 +449,18 @@ const DoctorChat = ({ onNavigate }) => {
                         type="text"
                         value={prescriptionForm.dosage}
                         onChange={(e) => setPrescriptionForm({...prescriptionForm, dosage: e.target.value})}
-                        placeholder="e.g., 10mg"
+                        placeholder="e.g., 10mg twice daily"
                         className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
-                        required
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
-                      <input
-                        type="text"
-                        value={prescriptionForm.frequency}
-                        onChange={(e) => setPrescriptionForm({...prescriptionForm, frequency: e.target.value})}
-                        placeholder="e.g., Twice daily"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
-                      <input
-                        type="text"
-                        value={prescriptionForm.duration}
-                        onChange={(e) => setPrescriptionForm({...prescriptionForm, duration: e.target.value})}
-                        placeholder="e.g., 30 days"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm"
-                        required
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Instructions</label>
+                      <textarea
+                        value={prescriptionForm.instructions}
+                        onChange={(e) => setPrescriptionForm({...prescriptionForm, instructions: e.target.value})}
+                        placeholder="e.g., Take with food"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm resize-none"
+                        rows="2"
                       />
                     </div>
                     <div>
@@ -378,9 +468,9 @@ const DoctorChat = ({ onNavigate }) => {
                       <textarea
                         value={prescriptionForm.notes}
                         onChange={(e) => setPrescriptionForm({...prescriptionForm, notes: e.target.value})}
-                        placeholder="Additional instructions..."
+                        placeholder="Additional notes..."
                         className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm resize-none"
-                        rows="3"
+                        rows="2"
                       />
                     </div>
                     <button

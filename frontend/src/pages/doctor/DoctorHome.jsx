@@ -1,38 +1,66 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://healthcare-fast-fyp.vercel.app/api';
 
 const DoctorHome = ({ user, onNavigate }) => {
-  const todayAppointments = [
-    {
-      id: 1,
-      patient: 'Sarah Johnson',
-      age: 45,
-      time: '10:00 AM',
-      type: 'Follow-up',
-      avatar: '👩'
-    },
-    {
-      id: 2,
-      patient: 'Michael Chen',
-      age: 32,
-      time: '11:30 AM',
-      type: 'New Consultation',
-      avatar: '👨'
-    },
-    {
-      id: 3,
-      patient: 'Emily Davis',
-      age: 28,
-      time: '2:00 PM',
-      type: 'Check-up',
-      avatar: '👩‍🦰'
-    }
-  ];
+  const [todayAppointments, setTodayAppointments] = useState([]);
+  const [stats, setStats] = useState([
+    { label: 'Total Patients', value: '0', icon: '👥', color: 'from-blue-400 to-blue-500' },
+    { label: 'Today\'s Appointments', value: '0', icon: '📅', color: 'from-teal-400 to-cyan-500' },
+    { label: 'Pending Reviews', value: '0', icon: '⏰', color: 'from-orange-400 to-orange-500' },
+  ]);
+  const [loading, setLoading] = useState(true);
 
-  const stats = [
-    { label: 'Total Patients', value: '142', icon: '👥', color: 'from-blue-400 to-blue-500' },
-    { label: 'Today\'s Appointments', value: '8', icon: '📅', color: 'from-teal-400 to-cyan-500' },
-    { label: 'Pending Reviews', value: '5', icon: '⏰', color: 'from-orange-400 to-orange-500' },
-  ];
+  useEffect(() => {
+    fetchAppointments();
+  }, []);
+
+  const fetchAppointments = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/appointments/doctor`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const allAppointments = response.data.appointments;
+      
+      // Filter today's appointments
+      const today = new Date().toDateString();
+      const todaysAppts = allAppointments.filter(apt => {
+        const aptDate = new Date(apt.appointment_date).toDateString();
+        return aptDate === today && apt.status === 'approved';
+      });
+
+      // Format appointments for display
+      const formattedAppts = todaysAppts.map(apt => ({
+        id: apt.id,
+        patient: apt.patient.full_name,
+        age: apt.patient.age || 'N/A',
+        time: apt.appointment_time,
+        type: apt.appointment_type || 'Consultation',
+        avatar: apt.patient.gender === 'Male' ? '👨' : apt.patient.gender === 'Female' ? '👩' : '👤'
+      }));
+
+      setTodayAppointments(formattedAppts);
+
+      // Calculate unique patients
+      const uniquePatients = new Set();
+      allAppointments.forEach(apt => uniquePatients.add(apt.patient_id));
+
+      // Update stats
+      setStats([
+        { label: 'Total Patients', value: uniquePatients.size.toString(), icon: '👥', color: 'from-blue-400 to-blue-500' },
+        { label: 'Today\'s Appointments', value: todaysAppts.length.toString(), icon: '📅', color: 'from-teal-400 to-cyan-500' },
+        { label: 'Pending Reviews', value: allAppointments.filter(apt => apt.status === 'pending').length.toString(), icon: '⏰', color: 'from-orange-400 to-orange-500' },
+      ]);
+    } catch (err) {
+      console.error('Error fetching appointments:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="pb-20 lg:pb-8">
@@ -107,23 +135,42 @@ const DoctorHome = ({ user, onNavigate }) => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
         </div>
-        <div className="space-y-3">
-          {todayAppointments.map(apt => (
-            <div key={apt.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-4">
-              <div className="w-12 h-12 md:w-14 md:h-14 bg-teal-100 rounded-xl flex items-center justify-center text-2xl md:text-3xl shrink-0">
-                {apt.avatar}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-800 text-sm md:text-base">{apt.patient}</h3>
-                <p className="text-xs md:text-sm text-gray-500">{apt.age} years • {apt.type}</p>
-                <p className="text-xs md:text-sm text-teal-500 font-medium mt-1">{apt.time}</p>
-              </div>
-              <button className="px-4 py-2 bg-teal-500 text-white rounded-xl text-sm font-medium hover:bg-teal-600 transition-colors">
-                View
-              </button>
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
+          </div>
+        ) : todayAppointments.length === 0 ? (
+          <div className="bg-white rounded-2xl p-8 text-center shadow-sm border border-gray-100">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
             </div>
-          ))}
-        </div>
+            <p className="text-gray-600 font-medium">No appointments today</p>
+            <p className="text-gray-500 text-sm mt-1">Enjoy your day!</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {todayAppointments.map(apt => (
+              <div key={apt.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-4">
+                <div className="w-12 h-12 md:w-14 md:h-14 bg-teal-100 rounded-xl flex items-center justify-center text-2xl md:text-3xl shrink-0">
+                  {apt.avatar}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-gray-800 text-sm md:text-base">{apt.patient}</h3>
+                  <p className="text-xs md:text-sm text-gray-500">{apt.age} years • {apt.type}</p>
+                  <p className="text-xs md:text-sm text-teal-500 font-medium mt-1">{apt.time}</p>
+                </div>
+                <button 
+                  onClick={() => onNavigate('patients')}
+                  className="px-4 py-2 bg-teal-500 text-white rounded-xl text-sm font-medium hover:bg-teal-600 transition-colors"
+                >
+                  View
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Quick Tips */}

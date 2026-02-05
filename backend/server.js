@@ -3,11 +3,33 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import appointmentRoutes from './routes/appointmentRoutes.js';
+import chatRoutes from './routes/chatRoutes.js';
+import prescriptionRoutes from './routes/prescriptionRoutes.js';
+import axios from 'axios';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Check expired appointments every 6 hours
+const checkExpiredAppointments = async () => {
+  try {
+    await axios.post(`http://localhost:${PORT}/api/appointments/check-expired`);
+    console.log('✓ Checked for expired appointments');
+  } catch (error) {
+    console.error('Error checking expired appointments:', error.message);
+  }
+};
+
+// Run check on startup
+setTimeout(() => {
+  checkExpiredAppointments();
+}, 10000); // Wait 10 seconds after startup
+
+// Schedule periodic checks (every 6 hours)
+setInterval(checkExpiredAppointments, 6 * 60 * 60 * 1000);
 
 // Middleware
 app.use(cors({
@@ -25,6 +47,9 @@ app.get('/', (req, res) => {
     endpoints: {
       auth: '/api/auth',
       admin: '/api/admin',
+      appointments: '/api/appointments',
+      chat: '/api/chat',
+      prescriptions: '/api/prescriptions',
       health: '/health'
     }
   });
@@ -33,6 +58,9 @@ app.get('/', (req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/prescriptions', prescriptionRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

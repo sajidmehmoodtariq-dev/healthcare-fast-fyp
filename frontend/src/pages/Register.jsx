@@ -47,11 +47,11 @@ const Register = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
-    // Validation for name fields - only letters (both uppercase and lowercase) and spaces
+    // Validation for name fields - only uppercase letters and spaces (no lowercase)
     if (name === 'fullName') {
-      const nameRegex = /^[a-zA-Z\s]*$/;
+      const nameRegex = /^[A-Z\s]*$/;
       if (!nameRegex.test(value)) {
-        return; // Don't update if invalid characters
+        return; // Don't update if invalid characters (lowercase or special chars)
       }
     }
     

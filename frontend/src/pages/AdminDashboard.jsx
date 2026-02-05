@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
+import AdminAppointments from '../components/AdminAppointments';
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
@@ -13,6 +14,7 @@ const AdminDashboard = () => {
   const [showModal, setShowModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('doctors'); // 'doctors' or 'appointments'
 
   useEffect(() => {
     fetchDoctors();
@@ -120,6 +122,35 @@ const AdminDashboard = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
+        {/* Tabs */}
+        <div className="flex gap-4 mb-8">
+          <button
+            onClick={() => setActiveTab('doctors')}
+            className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
+              activeTab === 'doctors'
+                ? 'bg-teal-500 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            Doctor Management
+          </button>
+          <button
+            onClick={() => setActiveTab('appointments')}
+            className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
+              activeTab === 'appointments'
+                ? 'bg-teal-500 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            Appointment Management
+          </button>
+        </div>
+
+        {/* Conditional Content */}
+        {activeTab === 'appointments' ? (
+          <AdminAppointments />
+        ) : (
+          <>
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow-sm p-6">
@@ -265,10 +296,9 @@ const AdminDashboard = () => {
             )}
           </div>
         </div>
-      </main>
 
-      {/* Doctor Details Modal */}
-      {showModal && selectedDoctor && (
+        {/* Doctor Details Modal */}
+        {showModal && selectedDoctor && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b flex items-center justify-between sticky top-0 bg-white">
@@ -439,6 +469,9 @@ const AdminDashboard = () => {
           </div>
         </div>
       )}
+          </>
+        )}
+      </main>
     </div>
   );
 };
