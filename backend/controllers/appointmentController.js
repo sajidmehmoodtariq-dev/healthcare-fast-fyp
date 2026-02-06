@@ -116,6 +116,24 @@ export const bookAppointment = async (req, res) => {
       throw new Error(insertError.message);
     }
 
+    // Get patient and doctor info for notifications
+    const { data: patient } = await supabase
+      .from('users')
+      .select('full_name')
+      .eq('id', patientId)
+      .single();
+
+    // Create notification for doctor
+    await supabase
+      .from('notifications')
+      .insert([{
+        user_id: doctorId,
+        type: 'appointment',
+        title: 'New Appointment Request',
+        message: `${patient?.full_name || 'A patient'} has booked an appointment with you on ${new Date(appointmentDate).toLocaleDateString()} at ${appointmentTime}. Waiting for payment confirmation.`,
+        related_id: appointment.id
+      }]);
+
     res.status(201).json({
       message: 'Appointment booked successfully. Please upload payment screenshot within 3 days.',
       appointment
@@ -173,6 +191,27 @@ export const uploadPaymentScreenshot = async (req, res) => {
 
     if (updateError) {
       throw new Error(updateError.message);
+    }
+
+    // Get admin users to notify
+    const { data: admins } = await supabase
+      .from('users')
+      .select('id')
+      .eq('role', 'admin');
+
+    // Create notification for each admin
+    if (admins && admins.length > 0) {
+      const adminNotifications = admins.map(admin => ({
+        user_id: admin.id,
+        type: 'system',
+        title: 'Payment Screenshot Uploaded',
+        message: `${appointment.users.full_name} has uploaded payment screenshot for appointment on ${new Date(appointment.appointment_date).toLocaleDateString()}. Please review.`,
+        related_id: appointmentId
+      }));
+
+      await supabase
+        .from('notifications')
+        .insert(adminNotifications);
     }
 
     res.status(200).json({
@@ -331,6 +370,26 @@ export const updateAppointmentStatus = async (req, res) => {
       throw new Error(updateError.message);
     }
 
+    // Create notification for patient
+    if (status === 'approved') {
+      // Get doctor info
+      const { data: doctor } = await supabase
+        .from('users')
+        .select('full_name')
+        .eq('id', appointment.doctor_id)
+        .single();
+
+      await supabase
+        .from('notifications')
+        .insert([{
+          user_id: appointment.patient_id,
+          type: 'appointment',
+          title: 'Appointment Approved',
+          message: `Your appointment with Dr. ${doctor?.full_name || 'doctor'} on ${new Date(appointment.appointment_date).toLocaleDateString()} at ${appointment.appointment_time} has been approved.`,
+          related_id: appointmentId
+        }]);
+    }
+
     res.status(200).json({
       message: `Appointment ${status} successfully`
     });
@@ -379,6 +438,73 @@ export const checkExpiredAppointments = async (req, res) => {
     });
   } catch (error) {
     console.error('Check expired appointments error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+};
+
+// Check for upcoming appointments and create reminder notifications
+export const checkUpcomingAppointments = async (req, res) => {
+  try {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowDate = tomorrow.toISOString().split('T')[0];
+
+    // Find approved appointments for tomorrow that haven't been notified
+    const { data: upcomingAppointments, error: fetchError } = await supabase
+      .from('appointments')
+      .select(`
+        id,
+        patient_id,
+        doctor_id,
+        appointment_date,
+        appointment_time,
+        doctor:users!appointments_doctor_id_fkey(full_name)
+      `)
+      .eq('status', 'approved')
+      .eq('appointment_date', tomorrowDate);
+
+    if (fetchError) {
+      throw new Error(fetchError.message);
+    }
+
+    if (upcomingAppointments && upcomingAppointments.length > 0) {
+      // Create notifications for each upcoming appointment
+      const notifications = upcomingAppointments.map(apt => ({
+        user_id: apt.patient_id,
+        type: 'reminder',
+        title: 'Upcoming Appointment Reminder',
+        message: `You have an appointment with Dr. ${apt.doctor.full_name} tomorrow at ${apt.appointment_time}`,
+        related_id: apt.id
+      }));
+
+      // Check if notifications already exist to avoid duplicates
+      const { data: existingNotifs } = await supabase
+        .from('notifications')
+        .select('related_id')
+        .eq('type', 'reminder')
+        .in('related_id', upcomingAppointments.map(a => a.id));
+
+      const existingIds = new Set(existingNotifs?.map(n => n.related_id) || []);
+      const newNotifications = notifications.filter(n => !existingIds.has(n.related_id));
+
+      if (newNotifications.length > 0) {
+        const { error: insertError } = await supabase
+          .from('notifications')
+          .insert(newNotifications);
+
+        if (insertError) {
+          throw new Error(insertError.message);
+        }
+
+        console.log(`Created ${newNotifications.length} appointment reminder notifications`);
+      }
+    }
+
+    res.status(200).json({
+      message: `Checked ${upcomingAppointments?.length || 0} upcoming appointments, created ${upcomingAppointments?.length || 0} reminders`
+    });
+  } catch (error) {
+    console.error('Check upcoming appointments error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 };

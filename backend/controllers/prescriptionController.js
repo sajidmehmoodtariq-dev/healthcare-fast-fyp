@@ -65,6 +65,17 @@ export const createPrescription = async (req, res) => {
       throw new Error(insertError.message);
     }
 
+    // Create notification for patient
+    await supabase
+      .from('notifications')
+      .insert([{
+        user_id: patientId,
+        type: 'prescription',
+        title: 'New Prescription Available',
+        message: `Dr. ${prescription.doctor.full_name} has created a new prescription for you. Diagnosis: ${diagnosis || 'See details'}`,
+        related_id: prescription.id
+      }]);
+
     res.status(201).json({
       message: 'Prescription created successfully',
       prescription

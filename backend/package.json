@@ -11,6 +11,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@google/genai": "^1.40.0",
     "@supabase/supabase-js": "^2.39.0",
     "axios": "^1.13.4",
     "bcryptjs": "^2.4.3",

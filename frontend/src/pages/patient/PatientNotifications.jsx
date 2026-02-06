@@ -1,97 +1,121 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import api from '../../utils/api';
 
 const PatientNotifications = ({ onNavigate }) => {
-  const [notifications] = useState([
-    {
-      id: 1,
-      type: 'appointment',
-      title: 'Upcoming Appointment',
-      message: 'Your appointment with Dr. Sarah Johnson is tomorrow at 10:00 AM',
-      time: '2 hours ago',
-      read: false,
-      icon: 'calendar',
-      iconColor: 'bg-blue-500'
-    },
-    {
-      id: 2,
-      type: 'medication',
-      title: 'Medication Reminder',
-      message: 'Time to take your Metoprolol (25mg)',
-      time: '4 hours ago',
-      read: false,
-      icon: 'pill',
-      iconColor: 'bg-teal-500'
-    },
-    {
-      id: 3,
-      type: 'results',
-      title: 'Test Results Available',
-      message: 'Your ECG test results are now available. View in your health records.',
-      time: '1 day ago',
-      read: true,
-      icon: 'document',
-      iconColor: 'bg-purple-500'
-    },
-    {
-      id: 4,
-      type: 'medication',
-      title: 'Medication Reminder',
-      message: "Don't forget to take your Atorvastatin (20mg) before bed",
-      time: '1 day ago',
-      read: true,
-      icon: 'pill',
-      iconColor: 'bg-teal-500'
-    },
-    {
-      id: 5,
-      type: 'appointment',
-      title: 'Appointment Confirmed',
-      message: 'Your appointment with Dr. Michael Chen on Nov 28 has been confirmed',
-      time: '2 days ago',
-      read: true,
-      icon: 'calendar',
-      iconColor: 'bg-blue-500'
-    },
-    {
-      id: 6,
-      type: 'tip',
-      title: 'Health Tip',
-      message: 'Remember to stay hydrated! Aim for 8 glasses of water daily.',
-      time: '3 days ago',
-      read: true,
-      icon: 'document',
-      iconColor: 'bg-purple-500'
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/notifications');
+      setNotifications(response.data);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
-  const newNotifications = notifications.filter(n => !n.read);
-  const earlierNotifications = notifications.filter(n => n.read);
+  const handleMarkAsRead = async (id) => {
+    try {
+      await api.patch(`/notifications/${id}/read`);
+      setNotifications(notifications.map(n => 
+        n.id === id ? { ...n, is_read: true } : n
+      ));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
 
-  const getIcon = (iconType) => {
-    switch (iconType) {
-      case 'calendar':
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+  const newNotifications = notifications.filter(n => !n.is_read);
+  const earlierNotifications = notifications.filter(n => n.is_read);
+
+  const getIcon = (type) => {
+    switch (type) {
+      case 'appointment':
         return (
           <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
         );
-      case 'pill':
+      case 'message':
         return (
           <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
         );
-      case 'document':
+      case 'prescription':
         return (
           <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         );
+      case 'reminder':
+        return (
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      case 'system':
+        return (
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
       default:
-        return null;
+        return (
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+        );
     }
   };
+
+  const getIconColor = (type) => {
+    switch (type) {
+      case 'appointment':
+        return 'bg-blue-500';
+      case 'message':
+        return 'bg-teal-500';
+      case 'prescription':
+        return 'bg-purple-500';
+      case 'reminder':
+        return 'bg-yellow-500';
+      case 'system':
+        return 'bg-gray-500';
+      default:
+        return 'bg-teal-500';
+    }
+  };
+
+  const getTimeAgo = (timestamp) => {
+    const now = new Date();
+    const createdAt = new Date(timestamp);
+    const diffInSeconds = Math.floor((now - createdAt) / 1000);
+
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+    return createdAt.toLocaleDateString();
+  };
+
+  if (loading) {
+    return (
+      <div className="pb-20 lg:pb-8 flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading notifications...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pb-20 lg:pb-8">
@@ -119,11 +143,12 @@ const PatientNotifications = ({ onNavigate }) => {
             {newNotifications.map(notification => (
               <div 
                 key={notification.id} 
+                onClick={() => handleMarkAsRead(notification.id)}
                 className="bg-white rounded-2xl p-4 shadow-sm border-2 border-teal-200 hover:border-teal-300 transition-colors cursor-pointer relative"
               >
                 <div className="flex items-start gap-4">
-                  <div className={`w-12 h-12 md:w-14 md:h-14 ${notification.iconColor} rounded-xl flex items-center justify-center shrink-0`}>
-                    {getIcon(notification.icon)}
+                  <div className={`w-12 h-12 md:w-14 md:h-14 ${getIconColor(notification.type)} rounded-xl flex items-center justify-center shrink-0`}>
+                    {getIcon(notification.type)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
@@ -131,7 +156,7 @@ const PatientNotifications = ({ onNavigate }) => {
                       <div className="w-2 h-2 bg-teal-500 rounded-full shrink-0 mt-1"></div>
                     </div>
                     <p className="text-xs md:text-sm text-gray-600 mt-1 line-clamp-2">{notification.message}</p>
-                    <p className="text-xs text-gray-400 mt-2">{notification.time}</p>
+                    <p className="text-xs text-gray-400 mt-2">{getTimeAgo(notification.created_at)}</p>
                   </div>
                 </div>
               </div>
@@ -151,13 +176,13 @@ const PatientNotifications = ({ onNavigate }) => {
                 className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:border-gray-200 transition-colors cursor-pointer"
               >
                 <div className="flex items-start gap-4">
-                  <div className={`w-12 h-12 md:w-14 md:h-14 ${notification.iconColor} rounded-xl flex items-center justify-center shrink-0`}>
-                    {getIcon(notification.icon)}
+                  <div className={`w-12 h-12 md:w-14 md:h-14 ${getIconColor(notification.type)} rounded-xl flex items-center justify-center shrink-0`}>
+                    {getIcon(notification.type)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-gray-800 text-sm md:text-base">{notification.title}</h3>
                     <p className="text-xs md:text-sm text-gray-600 mt-1 line-clamp-2">{notification.message}</p>
-                    <p className="text-xs text-gray-400 mt-2">{notification.time}</p>
+                    <p className="text-xs text-gray-400 mt-2">{getTimeAgo(notification.created_at)}</p>
                   </div>
                 </div>
               </div>

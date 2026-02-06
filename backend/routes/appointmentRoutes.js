@@ -8,7 +8,8 @@ import {
   getDoctorAppointments,
   getAllAppointments,
   updateAppointmentStatus,
-  checkExpiredAppointments
+  checkExpiredAppointments,
+  checkUpcomingAppointments
 } from '../controllers/appointmentController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
@@ -41,5 +42,8 @@ router.put('/status', authenticateToken, updateAppointmentStatus);
 
 // Check and expire old appointments
 router.post('/check-expired', checkExpiredAppointments);
+
+// Check for upcoming appointments and send reminders
+router.post('/check-upcoming', checkUpcomingAppointments);
 
 export default router;

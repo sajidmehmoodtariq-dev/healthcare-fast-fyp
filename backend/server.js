@@ -6,6 +6,9 @@ import adminRoutes from './routes/adminRoutes.js';
 import appointmentRoutes from './routes/appointmentRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import prescriptionRoutes from './routes/prescriptionRoutes.js';
+import aiRoutes from './routes/aiRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
+import medicalHistoryRoutes from './routes/medicalHistoryRoutes.js';
 import axios from 'axios';
 
 dotenv.config();
@@ -23,13 +26,25 @@ const checkExpiredAppointments = async () => {
   }
 };
 
-// Run check on startup
+// Check for upcoming appointments and send reminders (daily at 9 AM)
+const checkUpcomingAppointments = async () => {
+  try {
+    await axios.post(`http://localhost:${PORT}/api/appointments/check-upcoming`);
+    console.log('✓ Checked for upcoming appointments');
+  } catch (error) {
+    console.error('Error checking upcoming appointments:', error.message);
+  }
+};
+
+// Run checks on startup
 setTimeout(() => {
   checkExpiredAppointments();
+  checkUpcomingAppointments();
 }, 10000); // Wait 10 seconds after startup
 
-// Schedule periodic checks (every 6 hours)
-setInterval(checkExpiredAppointments, 6 * 60 * 60 * 1000);
+// Schedule periodic checks
+setInterval(checkExpiredAppointments, 6 * 60 * 60 * 1000); // Every 6 hours
+setInterval(checkUpcomingAppointments, 24 * 60 * 60 * 1000); // Every 24 hours
 
 // Middleware
 app.use(cors({
@@ -50,6 +65,9 @@ app.get('/', (req, res) => {
       appointments: '/api/appointments',
       chat: '/api/chat',
       prescriptions: '/api/prescriptions',
+      ai: '/api/ai',
+      notifications: '/api/notifications',
+      medicalHistory: '/api/medical-history',
       health: '/health'
     }
   });
@@ -60,7 +78,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/ai', aiRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/medical-history', medicalHistoryRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
