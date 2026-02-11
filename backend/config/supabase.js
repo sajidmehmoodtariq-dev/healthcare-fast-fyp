@@ -10,6 +10,12 @@ if (!supabaseKey) {
   throw new Error('SUPABASE_KEY is not defined in environment variables');
 }
 
+if (!supabaseUrl || !supabaseUrl.startsWith('http')) {
+  throw new Error('SUPABASE_URL is invalid or not defined');
+}
+
+console.log('Initializing Supabase client with URL:', supabaseUrl);
+
 // Create Supabase client with service role key for backend operations
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {

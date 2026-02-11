@@ -6,28 +6,44 @@ dotenv.config();
 // Create reusable transporter
 let transporter;
 
-// Create transporter using Ethereal test email (works without Gmail setup)
-const createTransporter = async () => {
-  // Use Ethereal test email service for development
-  // This creates a fake SMTP service that captures emails
-  const testAccount = await nodemailer.createTestAccount();
-  
+// Create transporter for production email
+const createTransporter = () => {
+  const emailService = process.env.EMAIL_SERVICE || 'gmail';
+  const emailUser = process.env.EMAIL_USER;
+  const emailPass = process.env.EMAIL_PASS;
+
+  if (!emailUser || !emailPass) {
+    console.warn('⚠️  Email credentials not configured. Email service will not work.');
+    console.warn('💡 Please set EMAIL_USER and EMAIL_PASS in your .env file');
+    return null;
+  }
+
   transporter = nodemailer.createTransport({
-    host: 'smtp.ethereal.email',
-    port: 587,
-    secure: false,
+    service: emailService,
     auth: {
-      user: testAccount.user,
-      pass: testAccount.pass,
+      user: emailUser,
+      pass: emailPass, // Use App Password for Gmail with 2-step verification
     },
   });
+
+  console.log('✅ Email service configured successfully');
+  console.log(`📧 Using: ${emailUser}`);
   
-  console.log('📧 Email service ready - Using Ethereal test account');
-  console.log('💡 OTP emails will be logged in console with preview links');
+  // Verify the connection
+  transporter.verify((error, success) => {
+    if (error) {
+      console.error('❌ Email service verification failed:', error.message);
+      console.warn('💡 If using Gmail with 2-step verification, make sure to use an App Password');
+    } else {
+      console.log('✅ Email service ready to send messages');
+    }
+  });
+
+  return transporter;
 };
 
 // Initialize transporter
-await createTransporter();
+transporter = createTransporter();
 
 // Store OTPs temporarily (in production, use Redis or database)
 const otpStore = new Map();
@@ -40,8 +56,13 @@ export const generateOTP = () => {
 // Send OTP email
 export const sendOTPEmail = async (email, otp) => {
   try {
+    if (!transporter) {
+      console.error('❌ Email service not configured');
+      return { success: false, error: 'Email service not configured' };
+    }
+
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: `"Healthcare Assistant" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: 'Healthcare App - Email Verification OTP',
       html: `
@@ -122,21 +143,17 @@ export const sendOTPEmail = async (email, otp) => {
 
     const info = await transporter.sendMail(mailOptions);
     
-    // Log preview URL for test emails
-    const previewUrl = nodemailer.getTestMessageUrl(info);
-    if (previewUrl) {
-      console.log('\n📧 ============================================');
-      console.log('   OTP Email Sent Successfully!');
-      console.log('   To:', email);
-      console.log('   OTP Code:', otp);
-      console.log('   Preview URL:', previewUrl);
-      console.log('============================================\n');
-    }
+    console.log('✅ OTP Email sent successfully');
+    console.log(`   To: ${email}`);
+    console.log(`   Message ID: ${info.messageId}`);
     
-    return { success: true };
+    return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending OTP email:', error);
-    console.error('Full error details:', error.response || error.message);
+    console.error('❌ Error sending OTP email:', error.message);
+    if (error.code === 'EAUTH') {
+      console.error('💡 Authentication failed. Please check your EMAIL_USER and EMAIL_PASS');
+      console.error('💡 For Gmail with 2-step verification, use an App Password');
+    }
     return { success: false, error: error.message };
   }
 };

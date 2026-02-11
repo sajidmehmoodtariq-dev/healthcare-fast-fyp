@@ -35,15 +35,19 @@ export const getAllDoctors = async (req, res) => {
       query = query.eq('approval_status', status);
     }
 
+    console.log('Fetching doctors with status:', status || 'all');
     const { data: doctors, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
+      console.error('Supabase query error:', error);
       throw new Error(error.message);
     }
 
+    console.log(`Successfully fetched ${doctors?.length || 0} doctors`);
     res.status(200).json({ doctors });
   } catch (error) {
     console.error('Get all doctors error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 };

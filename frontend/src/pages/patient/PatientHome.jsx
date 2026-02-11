@@ -1,25 +1,6 @@
 import React from 'react';
 
 const PatientHome = ({ user, onNavigate }) => {
-  const appointments = [
-    {
-      id: 1,
-      doctor: 'Dr. Sarah Johnson',
-      specialty: 'Cardiologist',
-      date: 'Nov 25, 2025',
-      time: '10:00 AM',
-      avatar: '👩‍⚕️'
-    },
-    {
-      id: 2,
-      doctor: 'Dr. Michael Chen',
-      specialty: 'General Physician',
-      date: 'Nov 28, 2025',
-      time: '2:30 PM',
-      avatar: '👨‍⚕️'
-    }
-  ];
-
   const healthTips = [
     'Drink at least 8 glasses of water daily',
     'Get 7-8 hours of sleep for optimal health',
@@ -67,29 +48,33 @@ const PatientHome = ({ user, onNavigate }) => {
         </div>
       </div>
 
-      {/* Upcoming Appointments */}
+      {/* Quick Actions */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg md:text-xl font-bold text-gray-800">Upcoming Appointments</h2>
-          <svg className="w-5 h-5 md:w-6 md:h-6 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-        </div>
-        <div className="space-y-3">
-          {appointments.map(apt => (
-            <div key={apt.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-4">
-              <div className="w-12 h-12 md:w-14 md:h-14 bg-teal-100 rounded-xl flex items-center justify-center text-2xl md:text-3xl shrink-0">
-                <svg className="w-6 h-6 md:w-7 md:h-7 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-800 text-sm md:text-base truncate">{apt.doctor}</h3>
-                <p className="text-xs md:text-sm text-gray-500">{apt.specialty}</p>
-                <p className="text-xs md:text-sm text-teal-500 font-medium mt-1">{apt.date} • {apt.time}</p>
-              </div>
+        <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-2 gap-3">
+          <button 
+            onClick={() => onNavigate('doctors')}
+            className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:shadow-md transition-shadow"
+          >
+            <div className="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center">
+              <svg className="w-6 h-6 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
             </div>
-          ))}
+            <span className="text-sm font-medium text-gray-700">Find Doctors</span>
+          </button>
+          
+          <button 
+            onClick={() => onNavigate('appointments')}
+            className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-2 hover:shadow-md transition-shadow"
+          >
+            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <span className="text-sm font-medium text-gray-700">My Appointments</span>
+          </button>
         </div>
       </div>
 
@@ -108,27 +93,6 @@ const PatientHome = ({ user, onNavigate }) => {
               <p className="text-sm md:text-base text-gray-700">{tip}</p>
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* Last Summary */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg md:text-xl font-bold text-gray-800">Last Summary</h2>
-          <svg className="w-5 h-5 md:w-6 md:h-6 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-        </div>
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="w-12 h-12 md:w-14 md:h-14 bg-indigo-100 rounded-xl flex items-center justify-center shrink-0">
-            <svg className="w-6 h-6 md:w-7 md:h-7 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-800 text-sm md:text-base">Cardiology Consultation</h3>
-            <p className="text-xs md:text-sm text-gray-500">Generated on Nov 20, 2025</p>
-          </div>
         </div>
       </div>
     </div>

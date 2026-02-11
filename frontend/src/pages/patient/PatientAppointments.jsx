@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://healthcare-fast-fyp.vercel.app/api';
 
-const PatientAppointments = () => {
+const PatientAppointments = ({ onNavigate }) => {
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -154,10 +154,7 @@ const PatientAppointments = () => {
               <p className="text-sm text-gray-600 mb-1">Experience: {doctor.experience} years</p>
               <p className="text-sm text-gray-600 mb-3">Fee: PKR {doctor.consultation_fee}</p>
               <button
-                onClick={() => {
-                  setSelectedDoctor(doctor);
-                  setShowBookingModal(true);
-                }}
+                onClick={() => onNavigate('doctors')}
                 className="w-full bg-teal-500 hover:bg-teal-600 text-white py-2 rounded-lg transition-colors"
               >
                 Book Appointment

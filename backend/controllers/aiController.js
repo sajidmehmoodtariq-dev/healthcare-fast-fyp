@@ -131,7 +131,7 @@ Now respond to the patient's question: "${message}"`;
 
     // Generate response using Gemini
     const result = await genAI.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       contents: context
     });
     
