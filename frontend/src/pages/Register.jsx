@@ -18,6 +18,7 @@ const Register = () => {
     password: '',
     age: '',
     gender: '',
+    bloodGroup: '',
     cnic: '',
     // Doctor specific
     specialization: '',
@@ -29,6 +30,7 @@ const Register = () => {
   const [cnicImage, setCnicImage] = useState(null);
   const [degreeImage, setDegreeImage] = useState(null);
   const [error, setError] = useState('');
+  const [nameCaseWarning, setNameCaseWarning] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { signup } = useAuth();
@@ -47,12 +49,20 @@ const Register = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
-    // Validation for name fields - only uppercase letters and spaces (no lowercase)
+    // Validation for name fields - enforce title case as user types.
     if (name === 'fullName') {
-      const nameRegex = /^[A-Z\s]*$/;
+      const nameRegex = /^[a-zA-Z\s]*$/;
       if (!nameRegex.test(value)) {
-        return; // Don't update if invalid characters (lowercase or special chars)
+        return;
       }
+
+      const liveTitleCaseRegex = /^$|^[A-Z][a-z]*(?: [A-Z][a-z]*)* ?$/;
+      if (!liveTitleCaseRegex.test(value)) {
+        setNameCaseWarning('Use title case only (e.g., Sajid Mehmood Tariq).');
+        return;
+      }
+
+      setNameCaseWarning('');
     }
     
     // Validation for CNIC - only digits, auto-format with hyphens
@@ -83,7 +93,7 @@ const Register = () => {
     
     // Validation for phone number - only digits
     if (name === 'phoneNumber') {
-      const phoneValue = value.replace(/\D/g, ''); // Remove all non-digit characters
+      const phoneValue = value.replace(/\D/g, '').slice(0, 11);
       setFormData((prev) => ({
         ...prev,
         [name]: phoneValue,
@@ -91,18 +101,97 @@ const Register = () => {
       return;
     }
     
-    // Validation for age - minimum 20 for doctors
-    if (name === 'age' && role === 'doctor') {
-      const ageValue = parseInt(value);
-      if (value && (ageValue < 20 || ageValue > 120)) {
-        return; // Don't update if age is less than 20 or more than 120
+    // Validation for age - must never exceed 100.
+    if (name === 'age') {
+      const ageValue = parseInt(value, 10);
+      if (value && (!Number.isNaN(ageValue) && ageValue > 100)) {
+        return;
       }
     }
-    
+
+    // Validation for consultation fee - enforce 4 digits max during input.
+    if (name === 'consultationFee') {
+      const feeValue = value.replace(/\D/g, '').slice(0, 4);
+      setFormData((prev) => ({
+        ...prev,
+        [name]: feeValue,
+      }));
+      return;
+    }
+
+    if (name === 'age') {
+      const ageDigits = value.replace(/\D/g, '').slice(0, 3);
+      setFormData((prev) => ({
+        ...prev,
+        [name]: ageDigits,
+      }));
+      return;
+    }
+
+    if (name === 'fullName' && value.trim() === '') {
+      setNameCaseWarning('');
+    }
+
+    if (name === 'bloodGroup') {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
+  };
+
+  const validateFormData = () => {
+    const trimmedFullName = formData.fullName.trim().replace(/\s+/g, ' ');
+    const titleCaseNameRegex = /^([A-Z][a-z]*)(\s[A-Z][a-z]*)*$/;
+
+    if (!titleCaseNameRegex.test(trimmedFullName)) {
+      return 'Each word in full name must start with a capital letter (e.g., Sajid Mehmood Tariq).';
+    }
+
+    if (!formData.phoneNumber || formData.phoneNumber.length !== 12) {
+      return 'Phone number must be exactly 12 digits.';
+    }
+
+    if (role === 'patient' && !formData.age) {
+      return 'Age is required for patients.';
+    }
+
+    if (formData.age) {
+      const parsedAge = parseInt(formData.age, 10);
+      if (Number.isNaN(parsedAge) || parsedAge < 1 || parsedAge > 100) {
+        return 'Age must be between 1 and 100.';
+      }
+    }
+
+    if (role === 'doctor' && formData.age && parseInt(formData.age, 10) < 20) {
+      return 'Doctor must be at least 20 years old.';
+    }
+
+    if (role === 'patient' && !formData.gender) {
+      return 'Gender is required for patients.';
+    }
+
+    if (role === 'patient' && !formData.bloodGroup) {
+      return 'Blood group is required for patients.';
+    }
+
+    if (role === 'doctor') {
+      const fee = parseInt(formData.consultationFee, 10);
+      if (!formData.consultationFee) {
+        return 'Consultation fee is required for doctors.';
+      }
+      if (Number.isNaN(fee) || fee < 100 || fee > 9999) {
+        return 'Consultation fee must be between 100 and 9999.';
+      }
+    }
+
+    return '';
   };
 
   const handleFileChange = (e, type) => {
@@ -196,6 +285,13 @@ const Register = () => {
   };
 
   const handleFinalSubmit = async () => {
+    const validationError = validateFormData();
+    if (validationError) {
+      setError(validationError);
+      setLoading(false);
+      return;
+    }
+
     // Validate email format with proper TLD (like .com, .org, etc.)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(formData.email)) {
@@ -217,12 +313,6 @@ const Register = () => {
         setError('CNIC must be exactly 13 digits (format: 35201-8468971-5)');
         return;
       }
-    }
-    
-    // Validate doctor age minimum
-    if (role === 'doctor' && formData.age && parseInt(formData.age) < 20) {
-      setError('Doctor must be at least 20 years old');
-      return;
     }
     
     // Validate password
@@ -262,6 +352,7 @@ const Register = () => {
     if (formData.phoneNumber) submitData.append('phoneNumber', formData.phoneNumber);
     if (formData.age) submitData.append('age', formData.age);
     if (formData.gender) submitData.append('gender', formData.gender);
+    if (formData.bloodGroup) submitData.append('bloodGroup', formData.bloodGroup);
     if (formData.cnic) submitData.append('cnic', formData.cnic);
 
     if (role === 'doctor') {
@@ -302,6 +393,12 @@ const Register = () => {
       return;
     }
 
+    const validationError = validateFormData();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     // Validate password
     if (formData.password.length < 5) {
       setError('Password must be at least 5 characters long');
@@ -337,15 +434,9 @@ const Register = () => {
     }
 
     // For doctors, validate required fields
-    if (role === 'doctor') {
-      if (!formData.cnic) {
-        setError('CNIC is required for doctors');
-        return;
-      }
-      if (formData.age && parseInt(formData.age) < 20) {
-        setError('Doctor must be at least 20 years old');
-        return;
-      }
+    if (role === 'doctor' && !formData.cnic) {
+      setError('CNIC is required for doctors');
+      return;
     }
 
     // Send OTP
@@ -522,6 +613,9 @@ const Register = () => {
                 required
               />
             </div>
+            {nameCaseWarning && (
+              <p className="mt-1 text-xs text-red-500">{nameCaseWarning}</p>
+            )}
           </div>
 
           {/* Email */}
@@ -579,10 +673,13 @@ const Register = () => {
                 name="phoneNumber"
                 value={formData.phoneNumber}
                 onChange={handleInputChange}
-                placeholder="Enter your phone number"
+                placeholder="Enter 12-digit phone number"
+                maxLength="12"
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                required
               />
             </div>
+            <p className="text-xs text-gray-500 mt-1">Phone number must be exactly 12 digits</p>
           </div>
 
           {/* Password */}
@@ -643,8 +740,9 @@ const Register = () => {
                   onChange={handleInputChange}
                   placeholder={role === 'doctor' ? 'Min 20 years' : 'Enter your age'}
                   min={role === 'doctor' ? '20' : '1'}
-                  max="120"
+                  max="100"
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  required={role === 'patient'}
                 />
               </div>
             </div>
@@ -672,6 +770,7 @@ const Register = () => {
                   value={formData.gender}
                   onChange={handleInputChange}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent appearance-none bg-white"
+                  required={role === 'patient'}
                 >
                   <option value="">Select gender</option>
                   <option value="Male">Male</option>
@@ -681,6 +780,31 @@ const Register = () => {
               </div>
             </div>
           </div>
+
+          {role === 'patient' && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Blood Group <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="bloodGroup"
+                value={formData.bloodGroup}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
+                required
+              >
+                <option value="">Select blood group</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+              </select>
+            </div>
+          )}
 
           {/* CNIC - Required for doctors, optional for patients */}
           <div className="mb-6">
@@ -774,10 +898,13 @@ const Register = () => {
                     value={formData.consultationFee}
                     onChange={handleInputChange}
                     placeholder="Enter consultation fee"
-                    min="0"
+                    min="100"
+                    max="9999"
                     className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    required
                   />
                 </div>
+                <p className="text-xs text-gray-500 mt-1">Consultation fee must be between 100 and 9999</p>
               </div>
 
               <div className="mb-6">

@@ -444,6 +444,15 @@ const AdminDashboard = () => {
                     />
                   </div>
 
+                  <a
+                    href="https://pmdc.pk"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-800 text-sm font-medium underline mb-3"
+                  >
+                    Verify on PMDC ↗
+                  </a>
+
                   <div className="flex gap-4">
                     <button
                       onClick={() => handleApprove(selectedDoctor.id)}

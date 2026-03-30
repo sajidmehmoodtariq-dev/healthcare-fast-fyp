@@ -201,6 +201,7 @@ export const signup = async (req, res) => {
       phoneNumber,
       age,
       gender,
+      bloodGroup,
       cnic,
       clinicAddress,
       specialization,
@@ -214,6 +215,23 @@ export const signup = async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    const normalizedFullName = fullName.trim().replace(/\s+/g, ' ');
+    const titleCaseNameRegex = /^([A-Z][a-z]*)(\s[A-Z][a-z]*)*$/;
+    if (!titleCaseNameRegex.test(normalizedFullName)) {
+      return res.status(400).json({
+        error: 'Each word in full name must start with a capital letter',
+      });
+    }
+
+    if (!phoneNumber || !/^\d{12}$/.test(phoneNumber)) {
+      return res.status(400).json({ error: 'Phone number must be exactly 12 digits' });
+    }
+
+    const parsedAge = age ? parseInt(age, 10) : null;
+    if (parsedAge !== null && (Number.isNaN(parsedAge) || parsedAge < 1 || parsedAge > 100)) {
+      return res.status(400).json({ error: 'Age must be between 1 and 100' });
+    }
+
     // Validate role - admin cannot signup
     if (!['patient', 'doctor'].includes(role)) {
       return res.status(400).json({ error: 'Invalid role. Only patients and doctors can register.' });
@@ -222,6 +240,32 @@ export const signup = async (req, res) => {
     // Check if CNIC is provided for doctors
     if (role === 'doctor' && !cnic) {
       return res.status(400).json({ error: 'CNIC is required for doctors' });
+    }
+
+    if (role === 'patient') {
+      if (!age) {
+        return res.status(400).json({ error: 'Age is required for patients' });
+      }
+      if (!gender) {
+        return res.status(400).json({ error: 'Gender is required for patients' });
+      }
+      if (!bloodGroup) {
+        return res.status(400).json({ error: 'Blood group is required for patients' });
+      }
+    }
+
+    if (role === 'doctor') {
+      if (parsedAge !== null && parsedAge < 20) {
+        return res.status(400).json({ error: 'Doctor must be at least 20 years old' });
+      }
+
+      const parsedConsultationFee = parseInt(consultationFee, 10);
+      if (!consultationFee || Number.isNaN(parsedConsultationFee)) {
+        return res.status(400).json({ error: 'Consultation fee is required for doctors' });
+      }
+      if (parsedConsultationFee < 100 || parsedConsultationFee > 9999) {
+        return res.status(400).json({ error: 'Consultation fee must be between 100 and 9999' });
+      }
     }
 
     // Check if user already exists
@@ -240,13 +284,14 @@ export const signup = async (req, res) => {
 
     // Prepare user data (using snake_case for database columns)
     const userData = {
-      full_name: fullName,
+      full_name: normalizedFullName,
       email,
       password: hashedPassword,
       role,
-      phone_number: phoneNumber || null,
-      age: age ? parseInt(age) : null,
+      phone_number: phoneNumber,
+      age: parsedAge,
       gender: gender || null,
+      blood_group: bloodGroup || null,
       cnic: cnic || null,
     };
 
@@ -256,7 +301,7 @@ export const signup = async (req, res) => {
       userData.specialization = specialization || null;
       userData.experience = experience ? parseInt(experience) : null;
       userData.license_number = licenseNumber || null;
-      userData.consultation_fee = consultationFee ? parseInt(consultationFee) : null;
+      userData.consultation_fee = parseInt(consultationFee, 10);
       userData.approval_status = 'pending'; // Doctor needs admin approval
 
       // Handle file uploads
@@ -407,6 +452,35 @@ export const updateDoctorProfile = async (req, res) => {
       return res.status(403).json({ error: 'Only doctors can update profile' });
     }
 
+    if (fullName) {
+      const normalizedFullName = fullName.trim().replace(/\s+/g, ' ');
+      const titleCaseNameRegex = /^([A-Z][a-z]*)(\s[A-Z][a-z]*)*$/;
+      if (!titleCaseNameRegex.test(normalizedFullName)) {
+        return res.status(400).json({ error: 'Each word in full name must start with a capital letter' });
+      }
+    }
+
+    if (phoneNumber && !/^\d{12}$/.test(phoneNumber)) {
+      return res.status(400).json({ error: 'Phone number must be exactly 12 digits' });
+    }
+
+    if (age) {
+      const parsedAge = parseInt(age, 10);
+      if (Number.isNaN(parsedAge) || parsedAge < 20 || parsedAge > 100) {
+        return res.status(400).json({ error: 'Age must be between 20 and 100 for doctors' });
+      }
+    }
+
+    const effectiveConsultationFee = consultationFee || currentUser.consultation_fee;
+    if (!effectiveConsultationFee) {
+      return res.status(400).json({ error: 'Consultation fee is required for doctors' });
+    }
+
+    const parsedConsultationFee = parseInt(effectiveConsultationFee, 10);
+    if (Number.isNaN(parsedConsultationFee) || parsedConsultationFee < 100 || parsedConsultationFee > 9999) {
+      return res.status(400).json({ error: 'Consultation fee must be between 100 and 9999' });
+    }
+
     // Check if CNIC and degree images are provided (required for update)
     if (!req.files || !req.files.cnicImage || !req.files.cnicImage[0]) {
       return res.status(400).json({ error: 'CNIC image is required' });
@@ -422,16 +496,16 @@ export const updateDoctorProfile = async (req, res) => {
 
     // Prepare update data
     const updateData = {
-      full_name: fullName || currentUser.full_name,
+      full_name: fullName ? fullName.trim().replace(/\s+/g, ' ') : currentUser.full_name,
       phone_number: phoneNumber || currentUser.phone_number,
-      age: age ? parseInt(age) : currentUser.age,
+      age: age ? parseInt(age, 10) : currentUser.age,
       gender: gender || currentUser.gender,
       cnic: cnic || currentUser.cnic,
       clinic_address: clinicAddress || currentUser.clinic_address,
       specialization: specialization || currentUser.specialization,
-      experience: experience ? parseInt(experience) : currentUser.experience,
+      experience: experience ? parseInt(experience, 10) : currentUser.experience,
       license_number: licenseNumber || currentUser.license_number,
-      consultation_fee: consultationFee ? parseInt(consultationFee) : currentUser.consultation_fee,
+      consultation_fee: parsedConsultationFee,
       cnic_image_url: cnicImageUrl,
       degree_image_url: degreeImageUrl,
       approval_status: 'pending', // Reset to pending after update

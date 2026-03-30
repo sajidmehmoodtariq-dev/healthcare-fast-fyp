@@ -194,4 +194,4 @@ setInterval(() => {
       otpStore.delete(email);
     }
   }
-}, 5 * 60 * 1000); // Clean up every 5 minutes
+}, 10 * 60 * 1000); // Clean up every 5 minutes

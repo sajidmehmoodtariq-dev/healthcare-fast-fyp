@@ -8,6 +8,79 @@ import DoctorChat from './doctor/DoctorChat';
 import DoctorProfile from './doctor/DoctorProfile';
 import DoctorNotifications from './doctor/DoctorNotifications';
 
+const NAME_REGEX = /^[a-zA-Z\s]*$/;
+const LIVE_TITLE_CASE_REGEX = /^$|^[A-Z][a-z]*(?: [A-Z][a-z]*)* ?$/;
+const TITLE_CASE_NAME_REGEX = /^([A-Z][a-z]*)(\s[A-Z][a-z]*)*$/;
+
+const applyDoctorEditInputRules = ({ name, value, setFormData, setNameCaseWarning }) => {
+  if (name === 'fullName') {
+    if (!NAME_REGEX.test(value)) {
+      setNameCaseWarning('Only letters and spaces are allowed.');
+      return true;
+    }
+
+    if (!LIVE_TITLE_CASE_REGEX.test(value)) {
+      setNameCaseWarning('Use title case only (e.g., Sajid Mehmood Tariq).');
+      return true;
+    }
+
+    setNameCaseWarning('');
+  }
+
+  if (name === 'phoneNumber') {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value.replace(/\D/g, '').slice(0, 12),
+    }));
+    return true;
+  }
+
+  if (name === 'age') {
+    const ageDigits = value.replace(/\D/g, '').slice(0, 3);
+    if (ageDigits && parseInt(ageDigits, 10) > 100) {
+      return true;
+    }
+    setFormData((prev) => ({
+      ...prev,
+      [name]: ageDigits,
+    }));
+    return true;
+  }
+
+  if (name === 'consultationFee') {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value.replace(/\D/g, '').slice(0, 4),
+    }));
+    return true;
+  }
+
+  return false;
+};
+
+const validateDoctorEditProfile = (formData) => {
+  const normalizedName = formData.fullName.trim().replace(/\s+/g, ' ');
+  if (!TITLE_CASE_NAME_REGEX.test(normalizedName)) {
+    return 'Each word in full name must start with a capital letter.';
+  }
+
+  if (!formData.phoneNumber || !/^\d{12}$/.test(formData.phoneNumber)) {
+    return 'Phone number must be exactly 12 digits.';
+  }
+
+  const ageNumber = parseInt(formData.age, 10);
+  if (!formData.age || Number.isNaN(ageNumber) || ageNumber < 20 || ageNumber > 100) {
+    return 'Age must be between 20 and 100.';
+  }
+
+  const feeNumber = parseInt(formData.consultationFee, 10);
+  if (!formData.consultationFee || Number.isNaN(feeNumber) || feeNumber < 100 || feeNumber > 9999) {
+    return 'Consultation fee must be between 100 and 9999.';
+  }
+
+  return '';
+};
+
 const DoctorDashboard = () => {
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
@@ -34,6 +107,7 @@ const DoctorDashboard = () => {
   const [cnicImage, setCnicImage] = useState(null);
   const [degreeImage, setDegreeImage] = useState(null);
   const [error, setError] = useState('');
+  const [nameCaseWarning, setNameCaseWarning] = useState('');
 
   const handleLogout = () => {
     logout();
@@ -61,6 +135,17 @@ const DoctorDashboard = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+
+    const handled = applyDoctorEditInputRules({
+      name,
+      value,
+      setFormData,
+      setNameCaseWarning,
+    });
+    if (handled) {
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -81,6 +166,13 @@ const DoctorDashboard = () => {
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setError('');
+
+    const validationError = validateDoctorEditProfile(formData);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -94,6 +186,7 @@ const DoctorDashboard = () => {
       submitData.append('experience', formData.experience);
       submitData.append('licenseNumber', formData.licenseNumber);
       submitData.append('clinicAddress', formData.clinicAddress);
+      submitData.append('consultationFee', formData.consultationFee);
       
       if (cnicImage) submitData.append('cnicImage', cnicImage);
       if (degreeImage) submitData.append('degreeImage', degreeImage);
@@ -142,7 +235,7 @@ const DoctorDashboard = () => {
         {isPending && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8">
             <div className="flex items-start mb-4">
-              <svg className="w-12 h-12 text-yellow-500 mr-4 flex-shrink-0" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-12 h-12 text-yellow-500 mr-4 shrink-0" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
                 <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
@@ -154,19 +247,19 @@ const DoctorDashboard = () => {
               <h3 className="font-semibold text-gray-800 mb-3">What happens next?</h3>
               <ul className="space-y-2 text-gray-600">
                 <li className="flex items-start">
-                  <svg className="w-5 h-5 text-teal-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-teal-500 mr-2 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                   <span>Admin will review your credentials and documents</span>
                 </li>
                 <li className="flex items-start">
-                  <svg className="w-5 h-5 text-teal-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-teal-500 mr-2 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                   <span>Verification typically takes 24-48 hours</span>
                 </li>
                 <li className="flex items-start">
-                  <svg className="w-5 h-5 text-teal-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-teal-500 mr-2 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                   <span>Once approved, you'll have full access to all features</span>
@@ -180,7 +273,7 @@ const DoctorDashboard = () => {
         {isRejected && !showEditForm && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-8">
             <div className="flex items-start mb-4">
-              <svg className="w-12 h-12 text-red-500 mr-4 flex-shrink-0" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-12 h-12 text-red-500 mr-4 shrink-0" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
                 <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div className="flex-1">
@@ -231,6 +324,9 @@ const DoctorDashboard = () => {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   required
                 />
+                {nameCaseWarning && (
+                  <p className="mt-1 text-xs text-red-500">{nameCaseWarning}</p>
+                )}
               </div>
 
               {/* Phone Number */}
@@ -241,8 +337,11 @@ const DoctorDashboard = () => {
                   name="phoneNumber"
                   value={formData.phoneNumber}
                   onChange={handleInputChange}
+                  maxLength="12"
+                  required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
+                <p className="text-xs text-gray-500 mt-1">Phone number must be exactly 12 digits</p>
               </div>
 
               {/* Age and Gender */}
@@ -254,6 +353,9 @@ const DoctorDashboard = () => {
                     name="age"
                     value={formData.age}
                     onChange={handleInputChange}
+                    min="20"
+                    max="100"
+                    required
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
@@ -333,6 +435,23 @@ const DoctorDashboard = () => {
                   rows="3"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Consultation Fee (PKR)
+                </label>
+                <input
+                  type="number"
+                  name="consultationFee"
+                  value={formData.consultationFee}
+                  onChange={handleInputChange}
+                  min="100"
+                  max="9999"
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Consultation fee must be between 100 and 9999</p>
               </div>
 
               {/* File Uploads */}
@@ -417,7 +536,7 @@ const ApprovedDoctorDashboard = ({ user, logout, activeTab, setActiveTab, render
             onClick={() => setActiveTab('home')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors ${
               activeTab === 'home' 
-                ? 'bg-gradient-to-r from-teal-400 to-cyan-500 text-white' 
+                ? 'bg-linear-to-r from-teal-400 to-cyan-500 text-white' 
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
@@ -431,7 +550,7 @@ const ApprovedDoctorDashboard = ({ user, logout, activeTab, setActiveTab, render
             onClick={() => setActiveTab('patients')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors ${
               activeTab === 'patients' 
-                ? 'bg-gradient-to-r from-teal-400 to-cyan-500 text-white' 
+                ? 'bg-linear-to-r from-teal-400 to-cyan-500 text-white' 
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
@@ -445,7 +564,7 @@ const ApprovedDoctorDashboard = ({ user, logout, activeTab, setActiveTab, render
             onClick={() => setActiveTab('chat')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors ${
               activeTab === 'chat' 
-                ? 'bg-gradient-to-r from-teal-400 to-cyan-500 text-white' 
+                ? 'bg-linear-to-r from-teal-400 to-cyan-500 text-white' 
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
@@ -459,7 +578,7 @@ const ApprovedDoctorDashboard = ({ user, logout, activeTab, setActiveTab, render
             onClick={() => setActiveTab('notifications')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors ${
               activeTab === 'notifications' 
-                ? 'bg-gradient-to-r from-teal-400 to-cyan-500 text-white' 
+                ? 'bg-linear-to-r from-teal-400 to-cyan-500 text-white' 
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
@@ -473,7 +592,7 @@ const ApprovedDoctorDashboard = ({ user, logout, activeTab, setActiveTab, render
             onClick={() => setActiveTab('profile')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors ${
               activeTab === 'profile' 
-                ? 'bg-gradient-to-r from-teal-400 to-cyan-500 text-white' 
+                ? 'bg-linear-to-r from-teal-400 to-cyan-500 text-white' 
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
@@ -596,6 +715,7 @@ const DoctorDashboardWrapper = () => {
   const [cnicImage, setCnicImage] = useState(null);
   const [degreeImage, setDegreeImage] = useState(null);
   const [error, setError] = useState('');
+  const [nameCaseWarning, setNameCaseWarning] = useState('');
 
   const handleLogout = () => {
     logout();
@@ -623,6 +743,17 @@ const DoctorDashboardWrapper = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+
+    const handled = applyDoctorEditInputRules({
+      name,
+      value,
+      setFormData,
+      setNameCaseWarning,
+    });
+    if (handled) {
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -643,6 +774,13 @@ const DoctorDashboardWrapper = () => {
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setError('');
+
+    const validationError = validateDoctorEditProfile(formData);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -656,6 +794,7 @@ const DoctorDashboardWrapper = () => {
       submitData.append('experience', formData.experience);
       submitData.append('licenseNumber', formData.licenseNumber);
       submitData.append('clinicAddress', formData.clinicAddress);
+      submitData.append('consultationFee', formData.consultationFee);
       
       if (cnicImage) submitData.append('cnicImage', cnicImage);
       if (degreeImage) submitData.append('degreeImage', degreeImage);

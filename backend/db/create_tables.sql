@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   phone_number VARCHAR(20),
   age INTEGER,
   gender VARCHAR(20),
+  blood_group VARCHAR(5),
   cnic VARCHAR(20),
   
   -- Doctor-specific fields

@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 const DoctorProfile = ({ onNavigate }) => {
   const { user, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [fieldError, setFieldError] = useState('');
+  const [nameCaseWarning, setNameCaseWarning] = useState('');
   const [formData, setFormData] = useState({
     fullName: user?.full_name || user?.fullName || '',
     email: user?.email || '',
@@ -26,23 +28,89 @@ const DoctorProfile = ({ onNavigate }) => {
       if (!nameRegex.test(value)) {
         return; // Don't update if invalid characters
       }
+
+      const liveTitleCaseRegex = /^$|^[A-Z][a-z]*(?: [A-Z][a-z]*)* ?$/;
+      if (!liveTitleCaseRegex.test(value)) {
+        setNameCaseWarning('Use title case only (e.g., Sajid Mehmood Tariq).');
+        return;
+      }
+
+      setNameCaseWarning('');
+    }
+
+    if (name === 'phoneNumber') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value.replace(/\D/g, '').slice(0, 12)
+      }));
+      return;
     }
     
-    // Validation for age - minimum 20 for doctors
+    // Validation for age - minimum 20 and maximum 100 for doctors
     if (name === 'age') {
-      const ageValue = parseInt(value);
-      if (value && (ageValue < 20 || ageValue > 120)) {
+      const ageDigits = value.replace(/\D/g, '').slice(0, 3);
+      const ageValue = parseInt(ageDigits, 10);
+      if (ageDigits && (ageValue < 20 || ageValue > 100)) {
         return; // Don't update if age is less than 20 or more than 120
       }
+
+      setFormData(prev => ({
+        ...prev,
+        [name]: ageDigits
+      }));
+      return;
+    }
+
+    if (name === 'consultationFee') {
+      const feeValue = value.replace(/\D/g, '').slice(0, 4);
+      setFormData(prev => ({
+        ...prev,
+        [name]: feeValue
+      }));
+      return;
     }
     
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
+
+    if (fieldError) {
+      setFieldError('');
+    }
   };
 
   const handleSave = () => {
+    const normalizedName = formData.fullName.trim().replace(/\s+/g, ' ');
+    const titleCaseNameRegex = /^([A-Z][a-z]*)(\s[A-Z][a-z]*)*$/;
+
+    if (!titleCaseNameRegex.test(normalizedName)) {
+      setFieldError('Each word in full name must start with a capital letter.');
+      return;
+    }
+
+    if (!formData.phoneNumber || formData.phoneNumber.length !== 12) {
+      setFieldError('Phone number must be exactly 12 digits.');
+      return;
+    }
+
+    if (formData.age && parseInt(formData.age, 10) > 100) {
+      setFieldError('Age cannot exceed 100.');
+      return;
+    }
+
+    if (!formData.consultationFee) {
+      setFieldError('Consultation fee is required.');
+      return;
+    }
+
+    const fee = parseInt(formData.consultationFee, 10);
+    if (Number.isNaN(fee) || fee < 100 || fee > 9999) {
+      setFieldError('Consultation fee must be between 100 and 9999.');
+      return;
+    }
+
+    setFieldError('');
     // TODO: Save profile changes to backend
     alert('Profile updated successfully!');
     setIsEditing(false);
@@ -51,7 +119,7 @@ const DoctorProfile = ({ onNavigate }) => {
   return (
     <div className="pb-20 lg:pb-8 max-w-2xl mx-auto">
       {/* Header */}
-      <div className="bg-gradient-to-br from-teal-400 to-cyan-500 rounded-3xl p-6 mb-6 text-white">
+      <div className="bg-linear-to-br from-teal-400 to-cyan-500 rounded-3xl p-6 mb-6 text-white">
         <button 
           onClick={() => onNavigate('home')}
           className="mb-4 p-2 hover:bg-white hover:bg-opacity-20 rounded-xl transition-colors inline-flex lg:hidden"
@@ -66,12 +134,15 @@ const DoctorProfile = ({ onNavigate }) => {
       {/* Profile Card */}
       <div className="bg-white rounded-3xl p-6 mb-6 shadow-sm border border-gray-100">
         <div className="flex items-center gap-4 mb-6">
-          <div className="w-16 h-16 bg-gradient-to-br from-teal-400 to-cyan-500 rounded-2xl flex items-center justify-center text-white text-2xl font-bold">
+          <div className="w-16 h-16 bg-linear-to-br from-teal-400 to-cyan-500 rounded-2xl flex items-center justify-center text-white text-2xl font-bold">
             {(formData.fullName || 'D')[0].toUpperCase()}
           </div>
           <div className="flex-1">
             <h2 className="text-xl font-bold text-gray-800">Dr. {formData.fullName || 'Doctor'}</h2>
             <p className="text-sm text-gray-500">{formData.specialization || 'Physician'}</p>
+            {isEditing && nameCaseWarning && (
+              <p className="text-xs text-red-500 mt-1">{nameCaseWarning}</p>
+            )}
           </div>
           <button
             onClick={() => setIsEditing(!isEditing)}
@@ -87,6 +158,9 @@ const DoctorProfile = ({ onNavigate }) => {
       {/* Personal Information */}
       <div className="bg-white rounded-3xl p-6 mb-6 shadow-sm border border-gray-100">
         <h3 className="text-lg font-bold text-gray-800 mb-4">Personal Information</h3>
+        {isEditing && fieldError && (
+          <p className="mb-3 text-sm text-red-500">{fieldError}</p>
+        )}
         
         <div className="space-y-4">
           {/* Email */}
@@ -127,10 +201,14 @@ const DoctorProfile = ({ onNavigate }) => {
                   name="phoneNumber"
                   value={formData.phoneNumber}
                   onChange={handleInputChange}
+                  maxLength="12"
                   className="w-full text-sm font-medium text-gray-800 bg-transparent border-b border-gray-300 focus:border-teal-500 outline-none"
                 />
               ) : (
                 <p className="text-sm font-medium text-gray-800">{formData.phoneNumber || 'Not provided'}</p>
+              )}
+              {isEditing && (
+                <p className="text-xs text-gray-500 mt-1">Phone number must be exactly 12 digits</p>
               )}
             </div>
           </div>
@@ -151,7 +229,7 @@ const DoctorProfile = ({ onNavigate }) => {
                   value={formData.age}
                   onChange={handleInputChange}
                   min="20"
-                  max="120"
+                  max="100"
                   placeholder="Min 20 years"
                   className="w-full text-sm font-medium text-gray-800 bg-transparent border-b border-gray-300 focus:border-teal-500 outline-none"
                 />
@@ -305,7 +383,8 @@ const DoctorProfile = ({ onNavigate }) => {
                     name="consultationFee"
                     value={formData.consultationFee}
                     onChange={handleInputChange}
-                    min="0"
+                    min="100"
+                    max="9999"
                     className="w-full pl-10 text-sm font-medium text-gray-800 bg-transparent border-b border-gray-300 focus:border-teal-500 outline-none"
                   />
                 </div>
@@ -313,6 +392,9 @@ const DoctorProfile = ({ onNavigate }) => {
                 <p className="text-sm font-medium text-gray-800">
                   {formData.consultationFee ? `PKR ${formData.consultationFee}` : 'Not provided'}
                 </p>
+              )}
+              {isEditing && (
+                <p className="text-xs text-gray-500 mt-1">Consultation fee must be between 100 and 9999</p>
               )}
             </div>
           </div>
@@ -330,7 +412,7 @@ const DoctorProfile = ({ onNavigate }) => {
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 py-3 bg-gradient-to-r from-teal-400 to-cyan-500 text-white rounded-2xl font-semibold hover:shadow-lg transition-all"
+            className="flex-1 py-3 bg-linear-to-r from-teal-400 to-cyan-500 text-white rounded-2xl font-semibold hover:shadow-lg transition-all"
           >
             Save Changes
           </button>

@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 const PatientProfile = ({ onNavigate }) => {
   const { user, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [fieldError, setFieldError] = useState('');
+  const [nameCaseWarning, setNameCaseWarning] = useState('');
   const [formData, setFormData] = useState({
     fullName: user?.full_name || user?.fullName || '',
     email: user?.email || '',
@@ -24,15 +26,76 @@ const PatientProfile = ({ onNavigate }) => {
       if (!nameRegex.test(value)) {
         return; // Don't update if invalid characters
       }
+
+      const liveTitleCaseRegex = /^$|^[A-Z][a-z]*(?: [A-Z][a-z]*)* ?$/;
+      if (!liveTitleCaseRegex.test(value)) {
+        setNameCaseWarning('Use title case only (e.g., Sajid Mehmood Tariq).');
+        return;
+      }
+
+      setNameCaseWarning('');
+    }
+
+    if (name === 'phoneNumber') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value.replace(/\D/g, '').slice(0, 12)
+      }));
+      return;
+    }
+
+    if (name === 'age') {
+      const ageValue = value.replace(/\D/g, '').slice(0, 3);
+      if (ageValue && parseInt(ageValue, 10) > 100) {
+        return;
+      }
+      setFormData(prev => ({
+        ...prev,
+        [name]: ageValue
+      }));
+      return;
     }
     
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
+
+    if (fieldError) {
+      setFieldError('');
+    }
   };
 
   const handleSave = () => {
+    const normalizedName = formData.fullName.trim().replace(/\s+/g, ' ');
+    const titleCaseNameRegex = /^([A-Z][a-z]*)(\s[A-Z][a-z]*)*$/;
+
+    if (!titleCaseNameRegex.test(normalizedName)) {
+      setFieldError('Each word in full name must start with a capital letter.');
+      return;
+    }
+
+    if (!formData.phoneNumber || formData.phoneNumber.length !== 12) {
+      setFieldError('Phone number must be exactly 12 digits.');
+      return;
+    }
+
+    if (!formData.age) {
+      setFieldError('Age is required.');
+      return;
+    }
+
+    if (parseInt(formData.age, 10) > 100) {
+      setFieldError('Age cannot exceed 100.');
+      return;
+    }
+
+    if (!formData.gender) {
+      setFieldError('Gender is required.');
+      return;
+    }
+
+    setFieldError('');
     // TODO: Save profile changes to backend
     alert('Profile updated successfully!');
     setIsEditing(false);
@@ -46,7 +109,7 @@ const PatientProfile = ({ onNavigate }) => {
   return (
     <div className="pb-20 lg:pb-8 max-w-2xl mx-auto">
       {/* Header */}
-      <div className="bg-gradient-to-br from-teal-400 to-cyan-500 rounded-3xl p-6 mb-6 text-white">
+      <div className="bg-linear-to-br from-teal-400 to-cyan-500 rounded-3xl p-6 mb-6 text-white">
         <button 
           onClick={() => onNavigate('home')}
           className="mb-4 p-2 hover:bg-white hover:bg-opacity-20 rounded-xl transition-colors inline-flex lg:hidden"
@@ -61,12 +124,15 @@ const PatientProfile = ({ onNavigate }) => {
       {/* Profile Card */}
       <div className="bg-white rounded-3xl p-6 mb-6 shadow-sm border border-gray-100">
         <div className="flex items-center gap-4 mb-6">
-          <div className="w-16 h-16 bg-gradient-to-br from-teal-400 to-cyan-500 rounded-2xl flex items-center justify-center text-white text-2xl font-bold">
+          <div className="w-16 h-16 bg-linear-to-br from-teal-400 to-cyan-500 rounded-2xl flex items-center justify-center text-white text-2xl font-bold">
             {(formData.fullName || 'U')[0].toUpperCase()}
           </div>
           <div className="flex-1">
             <h2 className="text-xl font-bold text-gray-800">{formData.fullName || 'User'}</h2>
             <p className="text-sm text-gray-500">{formData.email}</p>
+            {isEditing && nameCaseWarning && (
+              <p className="text-xs text-red-500 mt-1">{nameCaseWarning}</p>
+            )}
           </div>
           <button
             onClick={() => setIsEditing(!isEditing)}
@@ -82,6 +148,9 @@ const PatientProfile = ({ onNavigate }) => {
       {/* Personal Information */}
       <div className="bg-white rounded-3xl p-6 mb-6 shadow-sm border border-gray-100">
         <h3 className="text-lg font-bold text-gray-800 mb-4">Personal Information</h3>
+        {isEditing && fieldError && (
+          <p className="mb-3 text-sm text-red-500">{fieldError}</p>
+        )}
         
         <div className="space-y-4">
           {/* Email */}
@@ -122,10 +191,14 @@ const PatientProfile = ({ onNavigate }) => {
                   name="phoneNumber"
                   value={formData.phoneNumber}
                   onChange={handleInputChange}
+                  maxLength="12"
                   className="w-full text-sm font-medium text-gray-800 bg-transparent border-b border-gray-300 focus:border-teal-500 outline-none"
                 />
               ) : (
                 <p className="text-sm font-medium text-gray-800">{formData.phoneNumber || 'Not provided'}</p>
+              )}
+              {isEditing && (
+                <p className="text-xs text-gray-500 mt-1">Phone number must be exactly 12 digits</p>
               )}
             </div>
           </div>
@@ -146,6 +219,8 @@ const PatientProfile = ({ onNavigate }) => {
                     name="age"
                     value={formData.age}
                     onChange={handleInputChange}
+                    min="1"
+                    max="100"
                     className="w-full text-sm font-medium text-gray-800 bg-transparent border-b border-gray-300 focus:border-teal-500 outline-none"
                   />
                 ) : (
@@ -186,7 +261,7 @@ const PatientProfile = ({ onNavigate }) => {
           <div className="flex gap-3 mt-6">
             <button
               onClick={handleSave}
-              className="flex-1 bg-gradient-to-r from-teal-400 to-cyan-500 text-white font-semibold py-3 rounded-xl hover:shadow-lg transition-all"
+              className="flex-1 bg-linear-to-r from-teal-400 to-cyan-500 text-white font-semibold py-3 rounded-xl hover:shadow-lg transition-all"
             >
               Save Changes
             </button>

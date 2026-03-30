@@ -9,6 +9,7 @@ export const users = pgTable('users', {
   phoneNumber: varchar('phone_number', { length: 20 }),
   age: integer('age'),
   gender: varchar('gender', { length: 20 }),
+  bloodGroup: varchar('blood_group', { length: 5 }),
   
   // Common field for both doctors and patients
   cnic: varchar('cnic', { length: 20 }),
