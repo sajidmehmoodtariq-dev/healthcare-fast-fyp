@@ -30,7 +30,7 @@ const applyDoctorEditInputRules = ({ name, value, setFormData, setNameCaseWarnin
   if (name === 'phoneNumber') {
     setFormData((prev) => ({
       ...prev,
-      [name]: value.replace(/\D/g, '').slice(0, 12),
+      [name]: value.replace(/\D/g, '').slice(0, 11),
     }));
     return true;
   }
@@ -64,8 +64,8 @@ const validateDoctorEditProfile = (formData) => {
     return 'Each word in full name must start with a capital letter.';
   }
 
-  if (!formData.phoneNumber || !/^\d{12}$/.test(formData.phoneNumber)) {
-    return 'Phone number must be exactly 12 digits.';
+  if (!formData.phoneNumber || !/^\d{11}$/.test(formData.phoneNumber)) {
+    return 'Phone number must be exactly 11 digits.';
   }
 
   const ageNumber = parseInt(formData.age, 10);
@@ -337,11 +337,11 @@ const DoctorDashboard = () => {
                   name="phoneNumber"
                   value={formData.phoneNumber}
                   onChange={handleInputChange}
-                  maxLength="12"
+                  maxLength="11"
                   required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
-                <p className="text-xs text-gray-500 mt-1">Phone number must be exactly 12 digits</p>
+                <p className="text-xs text-gray-500 mt-1">Phone number must be exactly 11 digits</p>
               </div>
 
               {/* Age and Gender */}

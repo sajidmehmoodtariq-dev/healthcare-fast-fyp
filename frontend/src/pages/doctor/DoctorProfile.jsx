@@ -41,7 +41,7 @@ const DoctorProfile = ({ onNavigate }) => {
     if (name === 'phoneNumber') {
       setFormData(prev => ({
         ...prev,
-        [name]: value.replace(/\D/g, '').slice(0, 12)
+        [name]: value.replace(/\D/g, '').slice(0, 11)
       }));
       return;
     }
@@ -89,8 +89,8 @@ const DoctorProfile = ({ onNavigate }) => {
       return;
     }
 
-    if (!formData.phoneNumber || formData.phoneNumber.length !== 12) {
-      setFieldError('Phone number must be exactly 12 digits.');
+    if (!formData.phoneNumber || formData.phoneNumber.length !== 11) {
+      setFieldError('Phone number must be exactly 11 digits.');
       return;
     }
 
@@ -201,14 +201,14 @@ const DoctorProfile = ({ onNavigate }) => {
                   name="phoneNumber"
                   value={formData.phoneNumber}
                   onChange={handleInputChange}
-                  maxLength="12"
+                  maxLength="11"
                   className="w-full text-sm font-medium text-gray-800 bg-transparent border-b border-gray-300 focus:border-teal-500 outline-none"
                 />
               ) : (
                 <p className="text-sm font-medium text-gray-800">{formData.phoneNumber || 'Not provided'}</p>
               )}
               {isEditing && (
-                <p className="text-xs text-gray-500 mt-1">Phone number must be exactly 12 digits</p>
+                <p className="text-xs text-gray-500 mt-1">Phone number must be exactly 11 digits</p>
               )}
             </div>
           </div>

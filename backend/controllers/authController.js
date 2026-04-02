@@ -223,8 +223,8 @@ export const signup = async (req, res) => {
       });
     }
 
-    if (!phoneNumber || !/^\d{12}$/.test(phoneNumber)) {
-      return res.status(400).json({ error: 'Phone number must be exactly 12 digits' });
+    if (!phoneNumber || !/^\d{11}$/.test(phoneNumber)) {
+      return res.status(400).json({ error: 'Phone number must be exactly 11 digits' });
     }
 
     const parsedAge = age ? parseInt(age, 10) : null;
@@ -460,8 +460,8 @@ export const updateDoctorProfile = async (req, res) => {
       }
     }
 
-    if (phoneNumber && !/^\d{12}$/.test(phoneNumber)) {
-      return res.status(400).json({ error: 'Phone number must be exactly 12 digits' });
+    if (phoneNumber && !/^\d{11}$/.test(phoneNumber)) {
+      return res.status(400).json({ error: 'Phone number must be exactly 11 digits' });
     }
 
     if (age) {

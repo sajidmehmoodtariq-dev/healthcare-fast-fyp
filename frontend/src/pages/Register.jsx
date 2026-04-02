@@ -154,8 +154,8 @@ const Register = () => {
       return 'Each word in full name must start with a capital letter (e.g., Sajid Mehmood Tariq).';
     }
 
-    if (!formData.phoneNumber || formData.phoneNumber.length !== 12) {
-      return 'Phone number must be exactly 12 digits.';
+    if (!formData.phoneNumber || formData.phoneNumber.length !== 11) {
+      return 'Phone number must be exactly 11 digits.';
     }
 
     if (role === 'patient' && !formData.age) {
@@ -673,13 +673,13 @@ const Register = () => {
                 name="phoneNumber"
                 value={formData.phoneNumber}
                 onChange={handleInputChange}
-                placeholder="Enter 12-digit phone number"
-                maxLength="12"
+                placeholder="Enter 11-digit phone number"
+                maxLength="11"
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 required
               />
             </div>
-            <p className="text-xs text-gray-500 mt-1">Phone number must be exactly 12 digits</p>
+            <p className="text-xs text-gray-500 mt-1">Phone number must be exactly 11 digits</p>
           </div>
 
           {/* Password */}
