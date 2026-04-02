@@ -11,6 +11,7 @@ const DoctorChat = ({ onNavigate }) => {
   const [inputMessage, setInputMessage] = useState('');
   const [patientPrescriptions, setPatientPrescriptions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [prescriptionForm, setPrescriptionForm] = useState({
     diagnosis: '',
     medications: '',
@@ -194,6 +195,44 @@ const DoctorChat = ({ onNavigate }) => {
     }
   };
 
+  const handleGenerateChatSummary = async () => {
+    if (!selectedPatient || messages.length === 0 || summaryLoading) return;
+
+    const transcript = messages
+      .map((msg) => {
+        const speaker = msg.sender_id === selectedPatient.id ? 'Patient' : 'Doctor';
+        return `${speaker}: ${msg.message}`;
+      })
+      .join('\n');
+
+    setSummaryLoading(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${API_URL}/ai/summary`,
+        {
+          transcript,
+          participantName: selectedPatient.name,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const summaryMessage = {
+        is_summary: true,
+        message: response.data.summary,
+        created_at: new Date().toISOString(),
+      };
+
+      setMessages((prev) => [...prev, summaryMessage]);
+    } catch (err) {
+      console.error('Error generating doctor chat summary:', err);
+      alert('Failed to generate summary');
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
   const formatTime = (date) => {
     const msgDate = new Date(date);
     const today = new Date();
@@ -339,6 +378,20 @@ const DoctorChat = ({ onNavigate }) => {
                     </div>
                   ) : (
                     messages.map((msg, idx) => {
+                      if (msg.is_summary) {
+                        return (
+                          <div key={idx} className="flex justify-center">
+                            <div className="max-w-[90%] md:max-w-[80%] bg-yellow-50 text-yellow-900 border border-yellow-200 rounded-2xl p-3 md:p-4 shadow-sm">
+                              <p className="text-xs font-semibold uppercase tracking-wide mb-1">Chat Summary</p>
+                              <p className="text-sm md:text-base whitespace-pre-wrap">{msg.message}</p>
+                              <p className="text-xs mt-2 text-yellow-700">
+                                {new Date(msg.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }
+
                       const isDoctor = msg.sender_id !== selectedPatient.id;
                       return (
                         <div key={idx} className={`flex ${isDoctor ? 'justify-end' : 'justify-start'}`}>
@@ -360,6 +413,15 @@ const DoctorChat = ({ onNavigate }) => {
 
                 {/* Chat Input */}
                 <div className="p-4 bg-white border-t border-gray-200">
+                  <div className="mb-3 flex justify-end">
+                    <button
+                      onClick={handleGenerateChatSummary}
+                      disabled={messages.length === 0 || summaryLoading}
+                      className="px-4 py-2 text-xs md:text-sm font-medium bg-teal-50 text-teal-700 border border-teal-200 rounded-xl hover:bg-teal-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {summaryLoading ? 'Generating Summary...' : 'Generate Chat Summary'}
+                    </button>
+                  </div>
                   <div className="flex items-center gap-2">
                     <input
                       type="text"

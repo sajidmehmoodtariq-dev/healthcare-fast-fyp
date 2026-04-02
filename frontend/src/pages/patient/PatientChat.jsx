@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { jsPDF } from 'jspdf';
 import { useAuth } from '../../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://healthcare-fast-fyp.vercel.app/api';
@@ -19,14 +20,50 @@ const PatientChat = ({ onNavigate }) => {
   const [aiMessages, setAiMessages] = useState([]);
   const [aiInput, setAiInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiSessionId, setAiSessionId] = useState('');
+  const [showAllAIHistory, setShowAllAIHistory] = useState(false);
+  const [currentSummary, setCurrentSummary] = useState('');
+  const [summaryMessageIndex, setSummaryMessageIndex] = useState(-1);
+
+  const getSessionStorageKey = () => `ai_session_${user?.id || 'unknown'}`;
+
+  const createSessionId = () => `session-${user?.id || 'guest'}-${Date.now()}`;
+
+  const ensureSessionId = () => {
+    const key = getSessionStorageKey();
+    const existing = localStorage.getItem(key);
+    if (existing) {
+      setAiSessionId(existing);
+      return existing;
+    }
+
+    const created = createSessionId();
+    localStorage.setItem(key, created);
+    setAiSessionId(created);
+    return created;
+  };
 
   useEffect(() => {
     if (activeTab === 'doctors') {
       fetchConversations();
     } else if (activeTab === 'prescriptions') {
       fetchPrescriptions();
+    } else if (activeTab === 'ai') {
+      const sessionId = ensureSessionId();
+      fetchAIHistory(sessionId, false);
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'ai') return;
+
+    const sessionId = ensureSessionId();
+    if (showAllAIHistory) {
+      fetchAIHistory(undefined, true);
+    } else {
+      fetchAIHistory(sessionId, false);
+    }
+  }, [showAllAIHistory]);
 
   useEffect(() => {
     if (selectedDoctor && activeTab === 'chat') {
@@ -122,6 +159,27 @@ const PatientChat = ({ onNavigate }) => {
     }
   };
 
+  const fetchAIHistory = async (sessionId, includeAll = false) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/ai/history`, {
+        params: includeAll ? undefined : (sessionId ? { sessionId } : undefined),
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const mappedHistory = (response.data.history || []).map((entry) => ({
+        type: entry.sender_type,
+        text: entry.message,
+        disclaimer: entry.disclaimer || undefined,
+        time: new Date(entry.created_at),
+      }));
+
+      setAiMessages(mappedHistory);
+    } catch (err) {
+      console.error('Error fetching AI chat history:', err);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || !selectedDoctor) return;
     
@@ -200,6 +258,8 @@ const PatientChat = ({ onNavigate }) => {
   const handleAIChat = async () => {
     if (!aiInput.trim()) return;
 
+    const currentSessionId = aiSessionId || ensureSessionId();
+
     const userMessage = { type: 'user', text: aiInput, time: new Date() };
     setAiMessages(prev => [...prev, userMessage]);
     setAiInput('');
@@ -209,17 +269,25 @@ const PatientChat = ({ onNavigate }) => {
       const token = localStorage.getItem('token');
       const response = await axios.post(
         `${API_URL}/ai/chat`,
-        { message: aiInput.trim() },
+        {
+          message: aiInput.trim(),
+          sessionId: currentSessionId,
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       const aiMessage = {
         type: 'ai',
         text: response.data.response,
-        disclaimer: response.data.disclaimer,
+        disclaimer: response.data.disclaimer || undefined,
         time: new Date()
       };
       setAiMessages(prev => [...prev, aiMessage]);
+
+      if (response.data.sessionId && response.data.sessionId !== aiSessionId) {
+        setAiSessionId(response.data.sessionId);
+        localStorage.setItem(getSessionStorageKey(), response.data.sessionId);
+      }
     } catch (err) {
       console.error('Error with AI chat:', err);
       const errorMessage = {
@@ -230,6 +298,132 @@ const PatientChat = ({ onNavigate }) => {
       setAiMessages(prev => [...prev, errorMessage]);
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const handleGenerateSummary = async () => {
+    if (aiMessages.length === 0 || aiLoading) return;
+
+    const currentSessionId = aiSessionId || ensureSessionId();
+
+    const transcript = aiMessages
+      .map((msg) => `${msg.type === 'user' ? 'Patient' : 'AI'}: ${msg.text}`)
+      .join('\n');
+
+    setAiLoading(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${API_URL}/ai/chat`,
+        {
+          message: `Please summarize the full conversation below in a clear, patient-friendly way. Include: 1) key concerns discussed, 2) important guidance shared, 3) next steps. Keep it concise and easy to read.\n\nConversation:\n${transcript}`,
+          sessionId: currentSessionId,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const summaryText = response.data.response;
+      const summaryMessage = {
+        type: 'ai',
+        text: `Conversation Summary\n\n${summaryText}`,
+        disclaimer: response.data.disclaimer || undefined,
+        time: new Date(),
+      };
+
+      setCurrentSummary(summaryText);
+      setSummaryMessageIndex(aiMessages.length);
+      setAiMessages((prev) => [...prev, summaryMessage]);
+
+      // Save the summary to backend
+      await saveSessionSummaryToBackend(currentSessionId, summaryText);
+    } catch (err) {
+      console.error('Error generating chat summary:', err);
+      setAiMessages((prev) => [
+        ...prev,
+        {
+          type: 'ai',
+          text: 'Sorry, I could not generate a summary right now. Please try again.',
+          time: new Date(),
+        },
+      ]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleToggleAIHistory = async () => {
+    setShowAllAIHistory((prev) => !prev);
+  };
+
+  const generatePDFFromSummary = (summaryText) => {
+    try {
+      const pdf = new jsPDF();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      const maxWidth = pageWidth - 2 * margin;
+
+      // Title
+      pdf.setFontSize(18);
+      pdf.text('AI Medical Consultation Summary', margin, margin + 10);
+
+      // Date
+      pdf.setFontSize(10);
+      pdf.setTextColor(100);
+      pdf.text(`Generated: ${new Date().toLocaleString()}`, margin, margin + 20);
+
+      // Reset color
+      pdf.setTextColor(0);
+      pdf.setFontSize(11);
+
+      // Split summary text and add to PDF with word wrapping
+      const lines = pdf.splitTextToSize(summaryText, maxWidth);
+      let yPosition = margin + 35;
+      const lineHeight = 6;
+      const pageHeightWithMargin = pageHeight - margin;
+
+      lines.forEach((line) => {
+        if (yPosition > pageHeightWithMargin) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+        pdf.text(line, margin, yPosition);
+        yPosition += lineHeight;
+      });
+
+      // Footer
+      const totalPages = pdf.internal.pages.length - 1;
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(9);
+        pdf.setTextColor(150);
+        pdf.text(
+          `Page ${i} of ${totalPages}`,
+          pageWidth / 2,
+          pageHeight - 10,
+          { align: 'center' }
+        );
+      }
+
+      // Download the PDF
+      pdf.save(`AI_Consultation_Summary_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      alert('Failed to generate PDF');
+    }
+  };
+
+  const saveSessionSummaryToBackend = async (sessionId, summary) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${API_URL}/ai/session-summary`,
+        { sessionId, summary },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (err) {
+      console.error('Error saving session summary:', err);
     }
   };
 
@@ -550,7 +744,9 @@ const PatientChat = ({ onNavigate }) => {
                 </div>
               </div>
             ) : (
-              aiMessages.map((msg, idx) => (
+              aiMessages.map((msg, idx) => {
+                const isSummaryMessage = msg.text.includes('Conversation Summary');
+                return (
                 <div key={idx} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[85%] md:max-w-[75%] ${
                     msg.type === 'user'
@@ -570,6 +766,17 @@ const PatientChat = ({ onNavigate }) => {
                     <div className="text-sm md:text-base leading-relaxed space-y-1">
                       {msg.type === 'ai' ? formatAIText(msg.text) : msg.text}
                     </div>
+                    {isSummaryMessage && (
+                      <button
+                        onClick={() => generatePDFFromSummary(currentSummary || msg.text.replace('Conversation Summary\n\n', ''))}
+                        className="mt-3 px-3 py-2 bg-blue-50 text-blue-600 text-xs font-medium rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-2 w-full justify-center"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" />
+                        </svg>
+                        Download as PDF
+                      </button>
+                    )}
                     {msg.disclaimer && (
                       <p className="text-xs mt-2 pt-2 border-t border-gray-200 text-gray-500 italic">
                         {msg.disclaimer}
@@ -580,7 +787,8 @@ const PatientChat = ({ onNavigate }) => {
                     </p>
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
             {aiLoading && (
               <div className="flex justify-start">
@@ -600,6 +808,22 @@ const PatientChat = ({ onNavigate }) => {
 
           {/* AI Chat Input */}
           <div className="p-4 bg-white border-t border-gray-200">
+            <div className="mb-3 flex justify-end gap-2">
+              <button
+                onClick={handleToggleAIHistory}
+                disabled={aiLoading}
+                className="px-4 py-2 text-xs md:text-sm font-medium bg-gray-100 text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {showAllAIHistory ? 'Current Session' : 'View History'}
+              </button>
+              <button
+                onClick={handleGenerateSummary}
+                disabled={aiMessages.length === 0 || aiLoading}
+                className="px-4 py-2 text-xs md:text-sm font-medium bg-purple-50 text-purple-700 border border-purple-200 rounded-xl hover:bg-purple-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Generate Chat Summary
+              </button>
+            </div>
             <div className="flex items-center gap-2">
               <input
                 type="text"

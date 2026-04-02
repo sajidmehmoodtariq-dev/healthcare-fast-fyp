@@ -63,6 +63,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    const aiSessionKeys = Object.keys(localStorage).filter((key) => key.startsWith('ai_session_'));
+    aiSessionKeys.forEach((key) => localStorage.removeItem(key));
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
