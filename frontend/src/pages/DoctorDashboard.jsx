@@ -7,6 +7,7 @@ import DoctorPatients from './doctor/DoctorPatients';
 import DoctorChat from './doctor/DoctorChat';
 import DoctorProfile from './doctor/DoctorProfile';
 import DoctorNotifications from './doctor/DoctorNotifications';
+import DoctorMeetings from './doctor/DoctorMeetings';
 
 const NAME_REGEX = /^[a-zA-Z\s]*$/;
 const LIVE_TITLE_CASE_REGEX = /^$|^[A-Z][a-z]*(?: [A-Z][a-z]*)* ?$/;
@@ -124,6 +125,8 @@ const DoctorDashboard = () => {
         return <DoctorPatients onNavigate={setActiveTab} />;
       case 'chat':
         return <DoctorChat onNavigate={setActiveTab} />;
+      case 'meetings':
+        return <DoctorMeetings />;
       case 'notifications':
         return <DoctorNotifications onNavigate={setActiveTab} />;
       case 'profile':
@@ -575,10 +578,24 @@ const ApprovedDoctorDashboard = ({ user, logout, activeTab, setActiveTab, render
           </button>
 
           <button
+            onClick={() => setActiveTab('meetings')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors ${
+              activeTab === 'meetings'
+                ? 'bg-linear-to-r from-teal-400 to-cyan-500 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <span className="font-medium">Meetings</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('notifications')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors ${
-              activeTab === 'notifications' 
-                ? 'bg-linear-to-r from-teal-400 to-cyan-500 text-white' 
+              activeTab === 'notifications'
+                ? 'bg-linear-to-r from-teal-400 to-cyan-500 text-white'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
@@ -591,8 +608,8 @@ const ApprovedDoctorDashboard = ({ user, logout, activeTab, setActiveTab, render
           <button
             onClick={() => setActiveTab('profile')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-2 transition-colors ${
-              activeTab === 'profile' 
-                ? 'bg-linear-to-r from-teal-400 to-cyan-500 text-white' 
+              activeTab === 'profile'
+                ? 'bg-linear-to-r from-teal-400 to-cyan-500 text-white'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
@@ -658,6 +675,18 @@ const ApprovedDoctorDashboard = ({ user, logout, activeTab, setActiveTab, render
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
           <span className="text-xs font-medium">Chat</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('meetings')}
+          className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-colors ${
+            activeTab === 'meetings' ? 'text-teal-500' : 'text-gray-400'
+          }`}
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          <span className="text-xs font-medium">Meetings</span>
         </button>
 
         <button
@@ -732,6 +761,8 @@ const DoctorDashboardWrapper = () => {
         return <DoctorPatients onNavigate={setActiveTab} />;
       case 'chat':
         return <DoctorChat onNavigate={setActiveTab} />;
+      case 'meetings':
+        return <DoctorMeetings />;
       case 'notifications':
         return <DoctorNotifications onNavigate={setActiveTab} />;
       case 'profile':

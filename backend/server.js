@@ -9,6 +9,7 @@ import prescriptionRoutes from './routes/prescriptionRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import medicalHistoryRoutes from './routes/medicalHistoryRoutes.js';
+import meetingRoutes from './routes/meetingRoutes.js';
 import axios from 'axios';
 
 dotenv.config();
@@ -68,6 +69,7 @@ app.get('/', (req, res) => {
       ai: '/api/ai',
       notifications: '/api/notifications',
       medicalHistory: '/api/medical-history',
+      meetings: '/api/meetings',
       health: '/health'
     }
   });
@@ -82,6 +84,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/medical-history', medicalHistoryRoutes);
+app.use('/api/meetings', meetingRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

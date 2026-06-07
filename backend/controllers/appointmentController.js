@@ -1,5 +1,6 @@
 import { supabase } from '../config/supabase.js';
 import { uploadFileToSupabase } from '../config/supabase.js';
+import { logActivity, getIp } from '../utils/activityLogger.js';
 
 // Get all approved doctors for booking
 export const getApprovedDoctors = async (req, res) => {
@@ -133,6 +134,13 @@ export const bookAppointment = async (req, res) => {
         message: `${patient?.full_name || 'A patient'} has booked an appointment with you on ${new Date(appointmentDate).toLocaleDateString()} at ${appointmentTime}. Waiting for payment confirmation.`,
         related_id: appointment.id
       }]);
+
+    logActivity({
+      userId: patientId, userName: patient?.full_name, userRole: 'patient',
+      action: 'appointment_booked', entityType: 'appointment', entityId: appointment.id,
+      description: `${patient?.full_name || 'Patient'} booked appointment on ${appointmentDate} at ${appointmentTime}`,
+      ipAddress: getIp(req),
+    });
 
     res.status(201).json({
       message: 'Appointment booked successfully. Please upload payment screenshot within 3 days.',
@@ -389,6 +397,13 @@ export const updateAppointmentStatus = async (req, res) => {
           related_id: appointmentId
         }]);
     }
+
+    logActivity({
+      userId: req.user.id, userName: req.user.full_name, userRole: 'admin',
+      action: `appointment_${status}`, entityType: 'appointment', entityId: parseInt(appointmentId),
+      description: `Admin ${status} appointment #${appointmentId}${adminNotes ? `. Notes: ${adminNotes}` : ''}`,
+      ipAddress: getIp(req),
+    });
 
     res.status(200).json({
       message: `Appointment ${status} successfully`

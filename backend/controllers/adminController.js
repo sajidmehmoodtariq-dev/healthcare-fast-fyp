@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase.js';
+import { logActivity, getIp } from '../utils/activityLogger.js';
 
 // Get all pending doctors
 export const getPendingDoctors = async (req, res) => {
@@ -78,6 +79,13 @@ export const approveDoctor = async (req, res) => {
       return res.status(404).json({ error: 'Doctor not found' });
     }
 
+    logActivity({
+      userId: adminId, userName: req.user.full_name, userRole: 'admin',
+      action: 'doctor_approved', entityType: 'user', entityId: parseInt(doctorId),
+      description: `Admin approved doctor: ${doctor.full_name}`,
+      ipAddress: getIp(req),
+    });
+
     res.status(200).json({ message: 'Doctor approved successfully', doctor });
   } catch (error) {
     console.error('Approve doctor error:', error);
@@ -113,6 +121,13 @@ export const rejectDoctor = async (req, res) => {
       return res.status(404).json({ error: 'Doctor not found' });
     }
 
+    logActivity({
+      userId: adminId, userName: req.user.full_name, userRole: 'admin',
+      action: 'doctor_rejected', entityType: 'user', entityId: parseInt(doctorId),
+      description: `Admin rejected doctor: ${doctor.full_name}. Reason: ${reason || 'No reason provided'}`,
+      ipAddress: getIp(req),
+    });
+
     res.status(200).json({ message: 'Doctor rejected. They can update their information and resubmit.', doctor });
   } catch (error) {
     console.error('Reject doctor error:', error);
@@ -142,6 +157,30 @@ export const getDoctorDetails = async (req, res) => {
     res.status(200).json({ doctor });
   } catch (error) {
     console.error('Get doctor details error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+};
+
+// Get activity logs (admin only)
+export const getActivityLogs = async (req, res) => {
+  try {
+    const { limit = 100, offset = 0, action, userRole } = req.query;
+
+    let query = supabase
+      .from('activity_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+
+    if (action) query = query.eq('action', action);
+    if (userRole) query = query.eq('user_role', userRole);
+
+    const { data: logs, error, count } = await query;
+    if (error) throw new Error(error.message);
+
+    res.status(200).json({ logs: logs || [], total: count });
+  } catch (error) {
+    console.error('Get activity logs error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 };

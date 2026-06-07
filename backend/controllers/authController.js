@@ -1,7 +1,9 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { supabase } from '../config/supabase.js';
-import { uploadFileToSupabase } from '../config/supabase.js';import { generateOTP, sendOTPEmail, storeOTP, verifyOTP } from '../utils/emailService.js';
+import { uploadFileToSupabase } from '../config/supabase.js';
+import { generateOTP, sendOTPEmail, storeOTP, verifyOTP } from '../utils/emailService.js';
+import { logActivity, getIp } from '../utils/activityLogger.js';
 
 // Send OTP for email verification
 export const sendOTP = async (req, res) => {
@@ -339,6 +341,13 @@ export const signup = async (req, res) => {
     // Remove password from response
     delete newUser.password;
 
+    logActivity({
+      userId: newUser.id, userName: newUser.full_name, userRole: newUser.role,
+      action: 'user_signup', entityType: 'user', entityId: newUser.id,
+      description: `New ${newUser.role} registered: ${newUser.full_name}`,
+      ipAddress: getIp(req),
+    });
+
     res.status(201).json({
       message: 'User registered successfully',
       user: newUser,
@@ -385,6 +394,13 @@ export const login = async (req, res) => {
 
     // Remove password from response
     delete user.password;
+
+    logActivity({
+      userId: user.id, userName: user.full_name, userRole: user.role,
+      action: 'user_login', entityType: 'user', entityId: user.id,
+      description: `${user.full_name} (${user.role}) logged in`,
+      ipAddress: getIp(req),
+    });
 
     res.status(200).json({
       message: 'Login successful',

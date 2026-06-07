@@ -14,11 +14,31 @@ const AdminDashboard = () => {
   const [showModal, setShowModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('doctors'); // 'doctors' or 'appointments'
+  const [activeTab, setActiveTab] = useState('doctors'); // 'doctors' | 'appointments' | 'logs'
+  const [logs, setLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsFilter, setLogsFilter] = useState('all');
 
   useEffect(() => {
     fetchDoctors();
   }, [filter]);
+
+  const fetchLogs = async () => {
+    try {
+      setLogsLoading(true);
+      const params = logsFilter !== 'all' ? `?userRole=${logsFilter}` : '';
+      const response = await api.get(`/admin/activity-logs${params}`);
+      setLogs(response.data.logs || []);
+    } catch (error) {
+      console.error('Error fetching logs:', error);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'logs') fetchLogs();
+  }, [activeTab, logsFilter]);
 
   const fetchDoctors = async () => {
     try {
@@ -144,10 +164,28 @@ const AdminDashboard = () => {
           >
             Appointment Management
           </button>
+          <button
+            onClick={() => setActiveTab('logs')}
+            className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
+              activeTab === 'logs'
+                ? 'bg-teal-500 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            Activity Logs
+          </button>
         </div>
 
         {/* Conditional Content */}
-        {activeTab === 'appointments' ? (
+        {activeTab === 'logs' ? (
+          <ActivityLogsPanel
+            logs={logs}
+            loading={logsLoading}
+            filter={logsFilter}
+            setFilter={setLogsFilter}
+            onRefresh={fetchLogs}
+          />
+        ) : activeTab === 'appointments' ? (
           <AdminAppointments />
         ) : (
           <>
@@ -484,5 +522,110 @@ const AdminDashboard = () => {
     </div>
   );
 };
+
+const ACTION_LABELS = {
+  user_login:           { label: 'Login',               color: 'bg-blue-100 text-blue-700' },
+  user_signup:          { label: 'Signup',              color: 'bg-purple-100 text-purple-700' },
+  doctor_approved:      { label: 'Doctor Approved',     color: 'bg-green-100 text-green-700' },
+  doctor_rejected:      { label: 'Doctor Rejected',     color: 'bg-red-100 text-red-700' },
+  appointment_booked:   { label: 'Appt Booked',         color: 'bg-yellow-100 text-yellow-700' },
+  appointment_approved: { label: 'Appt Approved',       color: 'bg-green-100 text-green-700' },
+  appointment_rejected: { label: 'Appt Rejected',       color: 'bg-red-100 text-red-700' },
+  meeting_requested:    { label: 'Meeting Requested',   color: 'bg-cyan-100 text-cyan-700' },
+  meeting_accepted:     { label: 'Meeting Accepted',    color: 'bg-teal-100 text-teal-700' },
+  meeting_rejected:     { label: 'Meeting Declined',    color: 'bg-orange-100 text-orange-700' },
+};
+
+const ROLE_COLORS = {
+  admin:   'bg-red-50 text-red-600',
+  doctor:  'bg-teal-50 text-teal-600',
+  patient: 'bg-blue-50 text-blue-600',
+};
+
+function ActivityLogsPanel({ logs, loading, filter, setFilter, onRefresh }) {
+  const formatTs = (ts) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      + ' · '
+      + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm">
+      <div className="p-6 border-b flex items-center justify-between flex-wrap gap-3">
+        <h2 className="text-xl font-bold text-gray-800">Activity Logs</h2>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">Filter by role:</span>
+          {['all', 'admin', 'doctor', 'patient'].map(r => (
+            <button
+              key={r}
+              onClick={() => setFilter(r)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize ${
+                filter === r ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {r}
+            </button>
+          ))}
+          <button
+            onClick={onRefresh}
+            className="ml-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <div className="p-6">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500" />
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">No activity logs found.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-100">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {logs.map(log => {
+                  const actionMeta = ACTION_LABELS[log.action] || { label: log.action, color: 'bg-gray-100 text-gray-600' };
+                  return (
+                    <tr key={log.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{formatTs(log.created_at)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-800">{log.user_name || '—'}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {log.user_role && (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${ROLE_COLORS[log.user_role] || 'bg-gray-100 text-gray-600'}`}>
+                            {log.user_role}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${actionMeta.color}`}>
+                          {actionMeta.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">{log.description}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default AdminDashboard;

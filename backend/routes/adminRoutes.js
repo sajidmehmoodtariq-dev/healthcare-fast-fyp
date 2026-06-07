@@ -5,6 +5,7 @@ import {
   approveDoctor,
   rejectDoctor,
   getDoctorDetails,
+  getActivityLogs,
 } from '../controllers/adminController.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 
@@ -16,5 +17,7 @@ router.get('/doctors', authenticateToken, requireAdmin, getAllDoctors);
 router.get('/doctors/:doctorId', authenticateToken, requireAdmin, getDoctorDetails);
 router.put('/doctors/:doctorId/approve', authenticateToken, requireAdmin, approveDoctor);
 router.put('/doctors/:doctorId/reject', authenticateToken, requireAdmin, rejectDoctor);
+
+router.get('/activity-logs', authenticateToken, requireAdmin, getActivityLogs);
 
 export default router;
