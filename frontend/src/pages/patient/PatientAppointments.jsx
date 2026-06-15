@@ -11,18 +11,40 @@ const PatientAppointments = ({ onNavigate }) => {
   const [success, setSuccess] = useState('');
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState(null);
-  
-  // Booking form data
   const [appointmentDate, setAppointmentDate] = useState('');
   const [appointmentTime, setAppointmentTime] = useState('');
-  const [paymentScreenshot, setPaymentScreenshot] = useState(null);
 
   useEffect(() => {
     fetchDoctors();
     fetchAppointments();
+
+    // Check for Stripe redirect
+    const query = new URLSearchParams(window.location.search);
+    const sessionId = query.get('session_id');
+    const appointmentId = query.get('appointment_id');
+    
+    if (sessionId && appointmentId) {
+      verifyPayment(sessionId, appointmentId);
+    }
   }, []);
+
+  const verifyPayment = async (sessionId, appointmentId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${API_URL}/appointments/verify-payment`,
+        { sessionId, appointmentId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setSuccess('Payment verified successfully!');
+      
+      // Remove query params from URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      fetchAppointments();
+    } catch (err) {
+      setError('Failed to verify payment');
+    }
+  };
 
   const fetchDoctors = async () => {
     try {
@@ -52,8 +74,15 @@ const PatientAppointments = ({ onNavigate }) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    setLoading(true);
 
+    const now = new Date();
+    const selectedDateTime = new Date(`${appointmentDate}T${appointmentTime}`);
+    if (selectedDateTime < now) {
+      setError('Cannot book an appointment in the past.');
+      return;
+    }
+
+    setLoading(true);
     try {
       const token = localStorage.getItem('token');
       await axios.post(
@@ -66,7 +95,7 @@ const PatientAppointments = ({ onNavigate }) => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      setSuccess('Appointment booked! Please upload payment screenshot within 3 days.');
+      setSuccess('Appointment booked! Please complete the payment.');
       setShowBookingModal(false);
       fetchAppointments();
       setAppointmentDate('');
@@ -78,36 +107,18 @@ const PatientAppointments = ({ onNavigate }) => {
     }
   };
 
-  const handleUploadScreenshot = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setLoading(true);
-
+  const handlePayWithStripe = async (appointment) => {
     try {
+      setLoading(true);
       const token = localStorage.getItem('token');
-      const formData = new FormData();
-      formData.append('appointmentId', selectedAppointment.id);
-      formData.append('screenshot', paymentScreenshot);
-
-      await axios.post(
-        `${API_URL}/appointments/upload-screenshot`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
-          }
-        }
+      const response = await axios.post(
+        `${API_URL}/appointments/create-checkout-session`,
+        { appointmentId: appointment.id },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      setSuccess('Payment screenshot uploaded successfully!');
-      setShowUploadModal(false);
-      setPaymentScreenshot(null);
-      fetchAppointments();
+      window.location.href = response.data.url;
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to upload screenshot');
-    } finally {
+      setError('Failed to initiate payment');
       setLoading(false);
     }
   };
@@ -199,18 +210,15 @@ const PatientAppointments = ({ onNavigate }) => {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {appointment.status === 'pending' && !appointment.payment_screenshot_url && (
+                    {appointment.status === 'pending' && appointment.payment_status !== 'paid' && !appointment.payment_screenshot_url && (
                       <button
-                        onClick={() => {
-                          setSelectedAppointment(appointment);
-                          setShowUploadModal(true);
-                        }}
+                        onClick={() => handlePayWithStripe(appointment)}
                         className="text-teal-600 hover:text-teal-700 text-sm font-medium"
                       >
-                        Upload Payment
+                        Pay with Stripe
                       </button>
                     )}
-                    {appointment.payment_screenshot_url && appointment.status === 'pending' && (
+                    {(appointment.payment_status === 'paid' || appointment.payment_screenshot_url) && appointment.status === 'pending' && (
                       <span className="text-yellow-600 text-sm">Pending Approval</span>
                     )}
                     {appointment.status === 'approved' && (
@@ -274,7 +282,7 @@ const PatientAppointments = ({ onNavigate }) => {
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
                 <p className="text-sm text-yellow-800">
-                  ⚠️ Please upload payment screenshot within 3 days, or this appointment will expire.
+                  ⚠️ Please complete the payment within 3 days, or this appointment will expire.
                 </p>
               </div>
 
@@ -299,62 +307,7 @@ const PatientAppointments = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* Upload Screenshot Modal */}
-      {showUploadModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold text-gray-800">Upload Payment Screenshot</h3>
-              <button
-                onClick={() => setShowUploadModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600">Doctor: <span className="font-semibold">{selectedAppointment?.doctor.full_name}</span></p>
-              <p className="text-sm text-gray-600">Date: {new Date(selectedAppointment?.appointment_date).toLocaleDateString()}</p>
-              <p className="text-sm text-gray-600">Time: {selectedAppointment?.appointment_time}</p>
-              <p className="text-sm text-gray-600">Fee: PKR {selectedAppointment?.doctor.consultation_fee}</p>
-            </div>
-
-            <form onSubmit={handleUploadScreenshot}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Payment Screenshot
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setPaymentScreenshot(e.target.files[0])}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">Upload a screenshot of your payment to the doctor</p>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowUploadModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 disabled:opacity-50"
-                >
-                  {loading ? 'Uploading...' : 'Upload'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Upload Screenshot Modal removed */}
     </div>
   );
 };

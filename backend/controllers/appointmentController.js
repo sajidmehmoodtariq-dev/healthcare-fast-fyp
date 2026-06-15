@@ -1,6 +1,10 @@
 import { supabase } from '../config/supabase.js';
 import { uploadFileToSupabase } from '../config/supabase.js';
 import { logActivity, getIp } from '../utils/activityLogger.js';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 
 // Get all approved doctors for booking
 export const getApprovedDoctors = async (req, res) => {
@@ -143,7 +147,7 @@ export const bookAppointment = async (req, res) => {
     });
 
     res.status(201).json({
-      message: 'Appointment booked successfully. Please upload payment screenshot within 3 days.',
+      message: 'Appointment booked successfully. Please complete the payment within 3 days.',
       appointment
     });
   } catch (error) {
@@ -152,8 +156,8 @@ export const bookAppointment = async (req, res) => {
   }
 };
 
-// Upload payment screenshot for appointment
-export const uploadPaymentScreenshot = async (req, res) => {
+// Create Stripe Checkout Session
+export const createCheckoutSession = async (req, res) => {
   try {
     const { appointmentId } = req.body;
     const userId = req.user.id;
@@ -162,14 +166,10 @@ export const uploadPaymentScreenshot = async (req, res) => {
       return res.status(400).json({ error: 'Appointment ID is required' });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ error: 'Payment screenshot is required' });
-    }
-
     // Get appointment and verify ownership
     const { data: appointment, error: appointmentError } = await supabase
       .from('appointments')
-      .select('*, users!appointments_patient_id_fkey(full_name)')
+      .select('*, doctor:users!appointments_doctor_id_fkey(full_name, consultation_fee)')
       .eq('id', appointmentId)
       .single();
 
@@ -185,15 +185,84 @@ export const uploadPaymentScreenshot = async (req, res) => {
       return res.status(400).json({ error: 'This appointment has expired. Please book a new one.' });
     }
 
-    // Upload screenshot to Supabase
-    const screenshotUrl = await uploadFileToSupabase(req.file, 'payments');
+    const feeAmount = appointment.doctor.consultation_fee || 1000; // default to 1000 if not set
+    
+    // Create Stripe checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'pkr', // or usd depending on account
+            product_data: {
+              name: `Consultation with Dr. ${appointment.doctor.full_name}`,
+              description: `Appointment on ${appointment.appointment_date} at ${appointment.appointment_time}`,
+            },
+            unit_amount: feeAmount * 100, // Stripe expects amount in cents
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'payment',
+      success_url: `${CLIENT_URL}/patient/appointments?session_id={CHECKOUT_SESSION_ID}&appointment_id=${appointmentId}`,
+      cancel_url: `${CLIENT_URL}/patient/appointments`,
+      client_reference_id: appointmentId.toString(),
+    });
 
-    // Update appointment with screenshot
+    // Update appointment with stripe_session_id
+    await supabase
+      .from('appointments')
+      .update({ stripe_session_id: session.id })
+      .eq('id', appointmentId);
+
+    res.status(200).json({
+      url: session.url,
+      sessionId: session.id
+    });
+  } catch (error) {
+    console.error('Create checkout session error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+};
+
+// Verify Stripe Payment
+export const verifyPayment = async (req, res) => {
+  try {
+    const { sessionId, appointmentId } = req.body;
+    const userId = req.user.id;
+
+    if (!sessionId || !appointmentId) {
+      return res.status(400).json({ error: 'Session ID and Appointment ID are required' });
+    }
+
+    // Get appointment
+    const { data: appointment, error: appointmentError } = await supabase
+      .from('appointments')
+      .select('*, users!appointments_patient_id_fkey(full_name)')
+      .eq('id', appointmentId)
+      .single();
+
+    if (appointmentError || !appointment) {
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+
+    if (appointment.patient_id !== userId) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    // Verify session with Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({ error: 'Payment has not been completed' });
+    }
+
+    // Update appointment status to paid
     const { error: updateError } = await supabase
       .from('appointments')
       .update({
-        payment_screenshot_url: screenshotUrl,
-        screenshot_uploaded_at: new Date().toISOString()
+        payment_status: 'paid',
+        payment_screenshot_url: 'Stripe Payment Confirmed' // Backward compatibility
       })
       .eq('id', appointmentId);
 
@@ -201,19 +270,18 @@ export const uploadPaymentScreenshot = async (req, res) => {
       throw new Error(updateError.message);
     }
 
-    // Get admin users to notify
+    // Notify admins
     const { data: admins } = await supabase
       .from('users')
       .select('id')
       .eq('role', 'admin');
 
-    // Create notification for each admin
     if (admins && admins.length > 0) {
       const adminNotifications = admins.map(admin => ({
         user_id: admin.id,
         type: 'system',
-        title: 'Payment Screenshot Uploaded',
-        message: `${appointment.users.full_name} has uploaded payment screenshot for appointment on ${new Date(appointment.appointment_date).toLocaleDateString()}. Please review.`,
+        title: 'Payment Completed via Stripe',
+        message: `${appointment.users.full_name} has completed Stripe payment for appointment on ${new Date(appointment.appointment_date).toLocaleDateString()}. Please review.`,
         related_id: appointmentId
       }));
 
@@ -222,12 +290,9 @@ export const uploadPaymentScreenshot = async (req, res) => {
         .insert(adminNotifications);
     }
 
-    res.status(200).json({
-      message: 'Payment screenshot uploaded successfully. Waiting for admin approval.',
-      screenshotUrl
-    });
+    res.status(200).json({ message: 'Payment verified successfully' });
   } catch (error) {
-    console.error('Upload payment screenshot error:', error);
+    console.error('Verify payment error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 };
@@ -360,8 +425,8 @@ export const updateAppointmentStatus = async (req, res) => {
       return res.status(404).json({ error: 'Appointment not found' });
     }
 
-    if (!appointment.payment_screenshot_url) {
-      return res.status(400).json({ error: 'Cannot approve appointment without payment screenshot' });
+    if (appointment.payment_status !== 'paid' && !appointment.payment_screenshot_url) {
+      return res.status(400).json({ error: 'Cannot approve appointment unless payment is verified or screenshot is provided' });
     }
 
     // Update status
@@ -425,6 +490,7 @@ export const checkExpiredAppointments = async (req, res) => {
       .from('appointments')
       .select('id')
       .eq('status', 'pending')
+      .neq('payment_status', 'paid')
       .is('payment_screenshot_url', null)
       .lt('created_at', threeDaysAgo.toISOString());
 

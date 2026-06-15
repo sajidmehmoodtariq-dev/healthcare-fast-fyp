@@ -3,7 +3,8 @@ import {
   getApprovedDoctors,
   getDoctorBookedSlots,
   bookAppointment,
-  uploadPaymentScreenshot,
+  createCheckoutSession,
+  verifyPayment,
   getPatientAppointments,
   getDoctorAppointments,
   getAllAppointments,
@@ -25,8 +26,11 @@ router.get('/doctor/:doctorId/booked-slots', authenticateToken, getDoctorBookedS
 // Book an appointment (patients only)
 router.post('/book', authenticateToken, bookAppointment);
 
-// Upload payment screenshot
-router.post('/upload-screenshot', authenticateToken, upload.single('screenshot'), uploadPaymentScreenshot);
+// Create Stripe Checkout Session
+router.post('/create-checkout-session', authenticateToken, createCheckoutSession);
+
+// Verify Stripe Payment
+router.post('/verify-payment', authenticateToken, verifyPayment);
 
 // Get patient's appointments
 router.get('/patient', authenticateToken, getPatientAppointments);

@@ -5,12 +5,6 @@ import api from '../../utils/api';
 const APP_ID = import.meta.env.VITE_8X8_APP_ID || 'YOUR_APP_ID';
 const JOIN_WINDOW_MS = 15 * 60 * 1000; // 15 minutes before/after
 
-const STATUS_STYLES = {
-  pending:  { bg: 'bg-yellow-50',  text: 'text-yellow-700',  border: 'border-yellow-200',  label: 'Pending' },
-  accepted: { bg: 'bg-green-50',   text: 'text-green-700',   border: 'border-green-200',   label: 'Accepted' },
-  rejected: { bg: 'bg-red-50',     text: 'text-red-700',     border: 'border-red-200',     label: 'Declined' },
-};
-
 function formatDate(d) {
   if (!d) return '';
   return new Date(d).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
@@ -38,17 +32,9 @@ function minutesUntilJoinable(scheduledDate, scheduledTime) {
 
 const PatientMeetings = () => {
   const { user } = useAuth();
-  const [tab, setTab] = useState('requests');          // 'requests' | 'schedule'
-  const [doctors, setDoctors] = useState([]);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  // Schedule modal state
-  const [modalDoctor, setModalDoctor] = useState(null);
-  const [form, setForm] = useState({ doctorId: '', scheduledDate: '', scheduledTime: '' });
-  const [formError, setFormError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
   // Active call state
   const [activeRoom, setActiveRoom] = useState(null);
@@ -65,11 +51,7 @@ const PatientMeetings = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [doctorsRes, requestsRes] = await Promise.all([
-        api.get('/meetings/eligible-doctors'),
-        api.get('/meetings'),
-      ]);
-      setDoctors(doctorsRes.data.doctors || []);
+      const requestsRes = await api.get('/meetings');
       setRequests(requestsRes.data.meetingRequests || []);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load data');
@@ -79,45 +61,6 @@ const PatientMeetings = () => {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
-
-  // ---------- Schedule form ----------
-  const openModal = (doctor) => {
-    setModalDoctor(doctor);
-    setForm({ doctorId: doctor.id || '', scheduledDate: '', scheduledTime: '' });
-    setFormError('');
-  };
-
-  const closeModal = () => setModalDoctor(null);
-
-  const submitRequest = async (e) => {
-    e.preventDefault();
-    setFormError('');
-    if (!form.scheduledDate || !form.scheduledTime) {
-      setFormError('Please pick a date and time.');
-      return;
-    }
-    // Must be in the future
-    const picked = new Date(`${form.scheduledDate}T${form.scheduledTime}`);
-    if (picked <= new Date()) {
-      setFormError('Please choose a future date and time.');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await api.post('/meetings/request', {
-        doctorId: form.doctorId,
-        scheduledDate: form.scheduledDate,
-        scheduledTime: form.scheduledTime,
-      });
-      closeModal();
-      await loadData();
-      setTab('requests');
-    } catch (err) {
-      setFormError(err.response?.data?.error || 'Failed to send request');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   // ---------- Join meeting ----------
   const loadJitsiScript = () =>
@@ -189,25 +132,8 @@ const PatientMeetings = () => {
       <div className="mb-6">
         <h2 className="text-xl font-bold text-gray-800">Video Meetings</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Request a video consultation with your doctor. Meetings can only be joined at the scheduled time.
+          Your video consultations with doctors. Meetings can only be joined near the scheduled appointment time.
         </p>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6">
-        {['requests', 'schedule'].map(t => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-5 py-2 rounded-xl text-sm font-medium transition-colors ${
-              tab === t
-                ? 'bg-gradient-to-r from-teal-400 to-cyan-500 text-white'
-                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            {t === 'requests' ? 'My Requests' : 'Schedule Meeting'}
-          </button>
-        ))}
       </div>
 
       {error && (
@@ -221,51 +147,20 @@ const PatientMeetings = () => {
         <div className="flex items-center justify-center py-16">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-500" />
         </div>
-      ) : tab === 'schedule' ? (
-        /* ---- Schedule Meeting tab ---- */
-        doctors.length === 0 ? (
-          <EmptyState
-            title="No Connected Doctors"
-            message="You need an approved appointment with a doctor before you can request a video meeting."
-          />
-        ) : (
-          <div className="space-y-3">
-            {doctors.map(doc => (
-              <div key={doc.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <Avatar name={doc.full_name} color="teal" />
-                  <div>
-                    <p className="font-semibold text-gray-800">Dr. {doc.full_name}</p>
-                    {doc.specialization && <p className="text-xs text-teal-600">{doc.specialization}</p>}
-                  </div>
-                </div>
-                <button
-                  onClick={() => openModal(doc)}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-400 to-cyan-500 text-white rounded-xl font-medium text-sm hover:opacity-90 transition-opacity shrink-0"
-                >
-                  <VideoIcon />
-                  Request Meeting
-                </button>
-              </div>
-            ))}
-          </div>
-        )
       ) : (
-        /* ---- My Requests tab ---- */
         requests.length === 0 ? (
           <EmptyState
-            title="No Meeting Requests"
-            message="Switch to 'Schedule Meeting' to request a video consultation with one of your doctors."
+            title="No Upcoming Meetings"
+            message="When you have an approved appointment with a doctor, your meeting link will automatically appear here."
           />
         ) : (
           <div className="space-y-4">
             {requests.map(req => {
-              const s = STATUS_STYLES[req.status] || STATUS_STYLES.pending;
-              const joinable = req.status === 'accepted' && isJoinable(req.scheduled_date, req.scheduled_time);
-              const minsLeft = req.status === 'accepted' ? minutesUntilJoinable(req.scheduled_date, req.scheduled_time) : 0;
+              const joinable = isJoinable(req.scheduled_date, req.scheduled_time);
+              const minsLeft = minutesUntilJoinable(req.scheduled_date, req.scheduled_time);
 
               return (
-                <div key={req.id} className={`rounded-2xl border p-5 ${s.bg} ${s.border}`}>
+                <div key={req.id} className="rounded-2xl border p-5 bg-green-50 border-green-200">
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     <div className="flex items-center gap-4">
                       <Avatar name={req.doctor?.full_name} color="teal" />
@@ -279,49 +174,24 @@ const PatientMeetings = () => {
                         </p>
                       </div>
                     </div>
-
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${s.text} ${s.bg} border ${s.border}`}>
-                      {s.label}
-                    </span>
                   </div>
-
-                  {/* Rejection reason */}
-                  {req.status === 'rejected' && req.rejection_reason && (
-                    <p className="mt-3 text-sm text-red-600 bg-white rounded-lg px-3 py-2">
-                      Reason: {req.rejection_reason}
-                    </p>
-                  )}
 
                   {/* Actions */}
                   <div className="mt-4 flex items-center gap-3 flex-wrap">
-                    {req.status === 'accepted' && (
-                      joinable ? (
-                        <button
-                          onClick={() => joinMeeting(req)}
-                          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-400 to-cyan-500 text-white rounded-xl font-medium text-sm hover:opacity-90 transition-opacity"
-                        >
-                          <VideoIcon />
-                          Join Meeting
-                        </button>
-                      ) : (
-                        <p className="text-sm text-gray-500">
-                          {minsLeft > 0
-                            ? `Available to join in ${minsLeft} minute${minsLeft === 1 ? '' : 's'}`
-                            : 'This meeting has ended'}
-                        </p>
-                      )
-                    )}
-
-                    {req.status === 'rejected' && (
+                    {joinable ? (
                       <button
-                        onClick={() => {
-                          openModal(req.doctor);
-                          setTab('schedule');
-                        }}
-                        className="px-4 py-2 bg-white border border-teal-300 text-teal-600 rounded-xl text-sm font-medium hover:bg-teal-50 transition-colors"
+                        onClick={() => joinMeeting(req)}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-400 to-cyan-500 text-white rounded-xl font-medium text-sm hover:opacity-90 transition-opacity"
                       >
-                        Request Again
+                        <VideoIcon />
+                        Join Meeting
                       </button>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        {minsLeft > 0
+                          ? `Available to join in ${minsLeft} minute${minsLeft === 1 ? '' : 's'}`
+                          : 'This meeting has ended'}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -329,66 +199,6 @@ const PatientMeetings = () => {
             })}
           </div>
         )
-      )}
-
-      {/* Schedule modal */}
-      {modalDoctor && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-1">
-              Request Meeting with Dr. {modalDoctor.full_name}
-            </h3>
-            <p className="text-sm text-gray-500 mb-5">Choose a date and time for the video consultation.</p>
-
-            {formError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={submitRequest} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input
-                  type="date"
-                  min={new Date().toISOString().split('T')[0]}
-                  value={form.scheduledDate}
-                  onChange={e => setForm(f => ({ ...f, scheduledDate: e.target.value }))}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                <input
-                  type="time"
-                  value={form.scheduledTime}
-                  onChange={e => setForm(f => ({ ...f, scheduledTime: e.target.value }))}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 text-sm"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex-1 py-3 bg-gradient-to-r from-teal-400 to-cyan-500 text-white rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
-                >
-                  {submitting ? 'Sending…' : 'Send Request'}
-                </button>
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  disabled={submitting}
-                  className="px-5 py-3 border border-gray-300 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
     </div>
   );

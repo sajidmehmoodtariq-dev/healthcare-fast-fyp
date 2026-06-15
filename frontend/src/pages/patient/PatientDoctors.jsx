@@ -110,6 +110,31 @@ const PatientDoctors = ({ onNavigate }) => {
     });
   };
 
+  const isTimeSlotPassed = (timeSlot) => {
+    if (!selectedDate) return false;
+    
+    const today = new Date();
+    // Check if the selected date is today
+    if (
+      selectedDate.date === today.getDate() &&
+      selectedDate.month === today.getMonth() &&
+      selectedDate.year === today.getFullYear()
+    ) {
+      const isPM = timeSlot.includes('PM');
+      let hours = parseInt(timeSlot.split(':')[0], 10);
+      const minutes = parseInt(timeSlot.split(':')[1].split(' ')[0], 10);
+      
+      if (isPM && hours !== 12) hours += 12;
+      if (!isPM && hours === 12) hours = 0;
+      
+      const currentTime = today.getHours() * 60 + today.getMinutes();
+      const slotTime = hours * 60 + minutes;
+      
+      return slotTime <= currentTime;
+    }
+    return false;
+  };
+
   const handleBookAppointment = (doctor) => {
     setSelectedDoctor(doctor);
     setSelectedDate(null);
@@ -140,7 +165,7 @@ const PatientDoctors = ({ onNavigate }) => {
           { headers: { Authorization: `Bearer ${token}` } }
         );
         
-        alert(`Appointment booked successfully with ${selectedDoctor.full_name}!\n\nPlease upload payment screenshot within 3 days to confirm your appointment.`);
+        alert(`Appointment booked successfully with ${selectedDoctor.full_name}!\n\nPlease complete your Stripe payment to confirm your appointment.`);
         setSelectedDoctor(null);
         setSelectedDate(null);
         setSelectedTime(null);
@@ -355,13 +380,16 @@ const PatientDoctors = ({ onNavigate }) => {
                 <div className="grid grid-cols-3 gap-2">
                   {timeSlots.map((time, idx) => {
                     const isBooked = isTimeSlotBooked(time);
+                    const isPassed = isTimeSlotPassed(time);
+                    const isDisabled = isBooked || isPassed || !selectedDate;
+                    
                     return (
                       <button
                         key={idx}
-                        onClick={() => !isBooked && setSelectedTime(time)}
-                        disabled={isBooked || !selectedDate}
+                        onClick={() => !isDisabled && setSelectedTime(time)}
+                        disabled={isDisabled}
                         className={`py-2 md:py-3 rounded-xl border-2 font-medium transition-all text-xs md:text-base ${
-                          isBooked
+                          isBooked || isPassed
                             ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
                             : selectedTime === time
                             ? 'border-teal-500 bg-teal-50 text-teal-700'
@@ -372,6 +400,7 @@ const PatientDoctors = ({ onNavigate }) => {
                       >
                         {time}
                         {isBooked && <div className="text-[10px] text-red-500">Booked</div>}
+                        {!isBooked && isPassed && <div className="text-[10px] text-gray-500">Passed</div>}
                       </button>
                     );
                   })}
@@ -387,7 +416,7 @@ const PatientDoctors = ({ onNavigate }) => {
                   </div>
                   <span className="text-xl md:text-3xl font-bold text-teal-600 shrink-0">PKR {selectedDoctor.consultation_fee || '500'}</span>
                 </div>
-                <p className="text-xs text-teal-600 mt-2">⚠️ Please upload payment screenshot within 3 days after booking</p>
+                <p className="text-xs text-teal-600 mt-2">⚠️ Please complete your payment after booking</p>
               </div>
 
               {/* Confirm Button */}

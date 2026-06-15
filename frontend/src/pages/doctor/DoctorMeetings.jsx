@@ -5,12 +5,6 @@ import api from '../../utils/api';
 const APP_ID = import.meta.env.VITE_8X8_APP_ID || 'YOUR_APP_ID';
 const JOIN_WINDOW_MS = 15 * 60 * 1000;
 
-const STATUS_STYLES = {
-  pending:  { bg: 'bg-yellow-50',  text: 'text-yellow-700',  border: 'border-yellow-200',  label: 'Pending' },
-  accepted: { bg: 'bg-green-50',   text: 'text-green-700',   border: 'border-green-200',   label: 'Accepted' },
-  rejected: { bg: 'bg-red-50',     text: 'text-red-700',     border: 'border-red-200',     label: 'Declined' },
-};
-
 function formatDate(d) {
   if (!d) return '';
   return new Date(d).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
@@ -37,15 +31,9 @@ function minutesUntilJoinable(scheduledDate, scheduledTime) {
 
 const DoctorMeetings = () => {
   const { user } = useAuth();
-  const [tab, setTab] = useState('pending');
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  // Reject modal state
-  const [rejectTarget, setRejectTarget] = useState(null);
-  const [rejectReason, setRejectReason] = useState('');
-  const [responding, setResponding] = useState(false);
 
   // Active call state
   const [activeRoom, setActiveRoom] = useState(null);
@@ -71,44 +59,6 @@ const DoctorMeetings = () => {
   }, []);
 
   useEffect(() => { loadRequests(); }, [loadRequests]);
-
-  const pending  = requests.filter(r => r.status === 'pending');
-  const accepted = requests.filter(r => r.status === 'accepted');
-  const history  = requests.filter(r => r.status === 'rejected');
-
-  // ---------- Accept ----------
-  const accept = async (req) => {
-    setResponding(true);
-    try {
-      await api.put(`/meetings/${req.id}/respond`, { action: 'accept' });
-      await loadRequests();
-      setTab('accepted');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to accept');
-    } finally {
-      setResponding(false);
-    }
-  };
-
-  // ---------- Reject ----------
-  const openRejectModal = (req) => { setRejectTarget(req); setRejectReason(''); };
-  const closeRejectModal = () => setRejectTarget(null);
-
-  const confirmReject = async () => {
-    setResponding(true);
-    try {
-      await api.put(`/meetings/${rejectTarget.id}/respond`, {
-        action: 'reject',
-        rejectionReason: rejectReason.trim() || undefined,
-      });
-      closeRejectModal();
-      await loadRequests();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to reject');
-    } finally {
-      setResponding(false);
-    }
-  };
 
   // ---------- Join meeting ----------
   const loadJitsiScript = () =>
@@ -172,41 +122,11 @@ const DoctorMeetings = () => {
     );
   }
 
-  const TABS = [
-    { key: 'pending',  label: 'Pending',  count: pending.length },
-    { key: 'accepted', label: 'Upcoming', count: accepted.length },
-    { key: 'history',  label: 'History',  count: history.length },
-  ];
-
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-6">
         <h2 className="text-xl font-bold text-gray-800">Video Meetings</h2>
-        <p className="text-sm text-gray-500 mt-1">Review patient meeting requests and join at the scheduled time.</p>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6 flex-wrap">
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-medium transition-colors ${
-              tab === t.key
-                ? 'bg-linear-to-r from-teal-400 to-cyan-500 text-white'
-                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            {t.label}
-            {t.count > 0 && (
-              <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold ${
-                tab === t.key ? 'bg-white/30 text-white' : 'bg-teal-100 text-teal-700'
-              }`}>
-                {t.count}
-              </span>
-            )}
-          </button>
-        ))}
+        <p className="text-sm text-gray-500 mt-1">Review upcoming patient meetings and join at the scheduled time.</p>
       </div>
 
       {error && (
@@ -221,163 +141,44 @@ const DoctorMeetings = () => {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-500" />
         </div>
       ) : (
-        <>
-          {/* Pending tab */}
-          {tab === 'pending' && (
-            pending.length === 0 ? (
-              <EmptyState title="No Pending Requests" message="New meeting requests from patients will appear here." />
-            ) : (
-              <div className="space-y-4">
-                {pending.map(req => (
-                  <div key={req.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <div className="flex items-center gap-4 mb-4">
-                      <Avatar name={req.patient?.full_name} color="cyan" />
-                      <div>
-                        <p className="font-semibold text-gray-800">{req.patient?.full_name}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {formatDate(req.scheduled_date)} · {formatTime(req.scheduled_time)}
-                        </p>
-                      </div>
-                      <span className="ml-auto px-3 py-1 rounded-full text-xs font-semibold bg-yellow-50 text-yellow-700 border border-yellow-200">
-                        Pending
-                      </span>
-                    </div>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => accept(req)}
-                        disabled={responding}
-                        className="flex-1 py-2.5 bg-linear-to-r from-teal-400 to-cyan-500 text-white rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
-                      >
-                        Accept
-                      </button>
-                      <button
-                        onClick={() => openRejectModal(req)}
-                        disabled={responding}
-                        className="flex-1 py-2.5 border border-red-200 text-red-600 rounded-xl text-sm font-medium hover:bg-red-50 disabled:opacity-50 transition-colors"
-                      >
-                        Decline
-                      </button>
+        requests.length === 0 ? (
+          <EmptyState title="No Upcoming Meetings" message="Approved patient appointments will appear here automatically when the time arrives." />
+        ) : (
+          <div className="space-y-4">
+            {requests.map(req => {
+              const joinable = isJoinable(req.scheduled_date, req.scheduled_time);
+              const minsLeft = minutesUntilJoinable(req.scheduled_date, req.scheduled_time);
+              return (
+                <div key={req.id} className="bg-green-50 border border-green-200 rounded-2xl p-5">
+                  <div className="flex items-center gap-4 mb-4">
+                    <Avatar name={req.patient?.full_name} color="cyan" />
+                    <div>
+                      <p className="font-semibold text-gray-800">{req.patient?.full_name}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {formatDate(req.scheduled_date)} · {formatTime(req.scheduled_time)}
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
-            )
-          )}
-
-          {/* Upcoming/Accepted tab */}
-          {tab === 'accepted' && (
-            accepted.length === 0 ? (
-              <EmptyState title="No Upcoming Meetings" message="Accepted meetings will appear here with a join button when the time arrives." />
-            ) : (
-              <div className="space-y-4">
-                {accepted.map(req => {
-                  const joinable = isJoinable(req.scheduled_date, req.scheduled_time);
-                  const minsLeft = minutesUntilJoinable(req.scheduled_date, req.scheduled_time);
-                  return (
-                    <div key={req.id} className="bg-green-50 border border-green-200 rounded-2xl p-5">
-                      <div className="flex items-center gap-4 mb-4">
-                        <Avatar name={req.patient?.full_name} color="cyan" />
-                        <div>
-                          <p className="font-semibold text-gray-800">{req.patient?.full_name}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {formatDate(req.scheduled_date)} · {formatTime(req.scheduled_time)}
-                          </p>
-                        </div>
-                        <span className="ml-auto px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
-                          Accepted
-                        </span>
-                      </div>
-                      {joinable ? (
-                        <button
-                          onClick={() => joinMeeting(req)}
-                          className="w-full flex items-center justify-center gap-2 py-2.5 bg-linear-to-r from-teal-400 to-cyan-500 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
-                        >
-                          <VideoIcon />
-                          Join Meeting
-                        </button>
-                      ) : (
-                        <p className="text-sm text-gray-500 text-center">
-                          {minsLeft > 0
-                            ? `Available in ${minsLeft} minute${minsLeft === 1 ? '' : 's'}`
-                            : 'This meeting has ended'}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )
-          )}
-
-          {/* History tab */}
-          {tab === 'history' && (
-            history.length === 0 ? (
-              <EmptyState title="No History" message="Declined meeting requests will appear here." />
-            ) : (
-              <div className="space-y-3">
-                {history.map(req => (
-                  <div key={req.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                    <div className="flex items-center gap-4">
-                      <Avatar name={req.patient?.full_name} color="cyan" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-800">{req.patient?.full_name}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {formatDate(req.scheduled_date)} · {formatTime(req.scheduled_time)}
-                        </p>
-                        {req.rejection_reason && (
-                          <p className="text-xs text-red-500 mt-1">Reason: {req.rejection_reason}</p>
-                        )}
-                      </div>
-                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200 shrink-0">
-                        Declined
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )
-          )}
-        </>
-      )}
-
-      {/* Reject modal */}
-      {rejectTarget && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-1">Decline Meeting Request</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Declining meeting with {rejectTarget.patient?.full_name} on {formatDate(rejectTarget.scheduled_date)} at {formatTime(rejectTarget.scheduled_time)}.
-            </p>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Reason <span className="text-gray-400 font-normal">(optional)</span>
-              </label>
-              <textarea
-                rows={3}
-                value={rejectReason}
-                onChange={e => setRejectReason(e.target.value)}
-                placeholder="e.g. Not available at that time, please pick another slot."
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 resize-none"
-              />
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={confirmReject}
-                disabled={responding}
-                className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors"
-              >
-                {responding ? 'Declining…' : 'Decline Request'}
-              </button>
-              <button
-                onClick={closeRejectModal}
-                disabled={responding}
-                className="px-5 py-3 border border-gray-300 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
+                  {joinable ? (
+                    <button
+                      onClick={() => joinMeeting(req)}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 bg-linear-to-r from-teal-400 to-cyan-500 text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+                    >
+                      <VideoIcon />
+                      Join Meeting
+                    </button>
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center">
+                      {minsLeft > 0
+                        ? `Available in ${minsLeft} minute${minsLeft === 1 ? '' : 's'}`
+                        : 'This meeting has ended'}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        </div>
+        )
       )}
     </div>
   );

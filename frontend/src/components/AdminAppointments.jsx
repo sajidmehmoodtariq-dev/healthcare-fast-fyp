@@ -223,7 +223,12 @@ const AdminAppointments = () => {
                         PKR {appointment.doctor.consultation_fee}
                       </td>
                       <td className="px-4 py-3">
-                        {appointment.payment_screenshot_url ? (
+                        {appointment.payment_status === 'paid' ? (
+                          <span className="text-green-600 text-sm font-medium flex items-center">
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                            Paid via Stripe
+                          </span>
+                        ) : appointment.payment_screenshot_url ? (
                           <button
                             onClick={() => openAppointmentDetails(appointment)}
                             className="text-teal-600 hover:text-teal-700 text-sm font-medium"
@@ -240,7 +245,7 @@ const AdminAppointments = () => {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        {appointment.status === 'pending' && appointment.payment_screenshot_url && (
+                        {appointment.status === 'pending' && (appointment.payment_status === 'paid' || appointment.payment_screenshot_url) && (
                           <button
                             onClick={() => openAppointmentDetails(appointment)}
                             className="text-teal-600 hover:text-teal-700 text-sm font-medium"
@@ -303,20 +308,27 @@ const AdminAppointments = () => {
                 </div>
               </div>
 
-              {/* Payment Screenshot */}
-              {selectedAppointment.payment_screenshot_url && (
+              {/* Payment Information */}
+              {(selectedAppointment.payment_status === 'paid' || selectedAppointment.payment_screenshot_url) && (
                 <div className="mb-6">
-                  <h4 className="font-semibold text-gray-800 mb-2">Payment Screenshot</h4>
-                  <img
-                    src={selectedAppointment.payment_screenshot_url}
-                    alt="Payment Screenshot"
-                    className="w-full border border-gray-200 rounded-lg"
-                  />
+                  <h4 className="font-semibold text-gray-800 mb-2">Payment Information</h4>
+                  {selectedAppointment.payment_status === 'paid' ? (
+                    <div className="bg-green-50 p-4 rounded-lg flex items-center text-green-700">
+                      <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                      <span className="font-medium">Payment completed successfully via Stripe</span>
+                    </div>
+                  ) : (
+                    <img
+                      src={selectedAppointment.payment_screenshot_url}
+                      alt="Payment Screenshot"
+                      className="w-full border border-gray-200 rounded-lg"
+                    />
+                  )}
                 </div>
               )}
 
               {/* Admin Notes */}
-              {selectedAppointment.status === 'pending' && selectedAppointment.payment_screenshot_url && (
+              {selectedAppointment.status === 'pending' && (selectedAppointment.payment_status === 'paid' || selectedAppointment.payment_screenshot_url) && (
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Admin Notes (Optional)
@@ -332,7 +344,7 @@ const AdminAppointments = () => {
               )}
 
               {/* Action Buttons */}
-              {selectedAppointment.status === 'pending' && selectedAppointment.payment_screenshot_url && (
+              {selectedAppointment.status === 'pending' && (selectedAppointment.payment_status === 'paid' || selectedAppointment.payment_screenshot_url) && (
                 <div className="flex gap-3">
                   <button
                     onClick={() => handleUpdateStatus(selectedAppointment.id, 'rejected')}
