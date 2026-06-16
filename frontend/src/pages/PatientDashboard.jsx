@@ -14,6 +14,16 @@ const PatientDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('home');
 
+  React.useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const tab = query.get('tab');
+    if (tab) {
+      setActiveTab(tab);
+    } else if (query.get('session_id')) {
+      setActiveTab('appointments');
+    }
+  }, []);
+
   const handleLogout = () => {
     logout();
     navigate('/login');

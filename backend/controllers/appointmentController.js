@@ -204,8 +204,8 @@ export const createCheckoutSession = async (req, res) => {
         },
       ],
       mode: 'payment',
-      success_url: `${CLIENT_URL}/patient/appointments?session_id={CHECKOUT_SESSION_ID}&appointment_id=${appointmentId}`,
-      cancel_url: `${CLIENT_URL}/patient/appointments`,
+      success_url: `${CLIENT_URL}/patient-dashboard?tab=appointments&session_id={CHECKOUT_SESSION_ID}&appointment_id=${appointmentId}`,
+      cancel_url: `${CLIENT_URL}/patient-dashboard?tab=appointments`,
       client_reference_id: appointmentId.toString(),
     });
 
